@@ -6,6 +6,7 @@ pub mod calculate;
 pub mod health;
 pub mod journal;
 pub mod ledger;
+pub mod narrative;
 pub mod simulate;
 pub mod treasury;
 
@@ -22,6 +23,7 @@ use utoipa_swagger_ui::SwaggerUi;
         health::healthz,
         calculate::handle_calculate,
         simulate::handle_simulate,
+        narrative::generate,
         ledger::register_account,
         ledger::list_accounts,
         ledger::get_account,
@@ -47,6 +49,7 @@ use utoipa_swagger_ui::SwaggerUi;
         treasury::hedge_effectiveness_handler,
     ),
     tags(
+        (name = "narrative", description = "CFO-style narrative memo generation"),
         (name = "ledger", description = "Chart of accounts and balances"),
         (name = "journal", description = "Posting and listing journal entries"),
         (name = "ap", description = "Accounts payable: suppliers, invoices, aging, payment proposals"),
@@ -74,6 +77,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
                 web::post().to(calculate::handle_calculate),
             )
             .route("/simulate", web::post().to(simulate::handle_simulate))
+            .route("/narrative", web::post().to(narrative::generate))
             .service(
                 web::scope("/ledger")
                     .route("/accounts", web::post().to(ledger::register_account))

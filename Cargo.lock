@@ -478,6 +478,7 @@ version = "0.1.0"
 dependencies = [
  "casiros-core",
  "casiros-dag",
+ "casiros-macros",
  "chrono",
  "rust_decimal",
  "rust_decimal_macros",
@@ -486,6 +487,18 @@ dependencies = [
  "thiserror",
  "utoipa",
  "uuid",
+]
+
+[[package]]
+name = "casiros-macros"
+version = "0.1.0"
+dependencies = [
+ "casiros-erp",
+ "proc-macro2",
+ "quote",
+ "rust_decimal",
+ "rust_decimal_macros",
+ "syn 2.0.119",
 ]
 
 [[package]]

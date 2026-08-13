@@ -20,6 +20,7 @@ async fn openapi_document_lists_every_implemented_path() {
         "/healthz",
         "/api/v1/calculate/{formula}",
         "/api/v1/simulate",
+        "/api/v1/narrative",
         "/api/v1/ledger/accounts",
         "/api/v1/ledger/accounts/{code}",
         "/api/v1/ledger/accounts/{code}/balance",

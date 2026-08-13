@@ -10,6 +10,7 @@ rust-version.workspace = true
 [dependencies]
 casiros-core = { path = "../core" }
 casiros-dag = { path = "../dag" }
+casiros-macros = { path = "../macros" }
 chrono = { version = "0.4", features = ["serde"] }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 rust_decimal_macros.workspace = true

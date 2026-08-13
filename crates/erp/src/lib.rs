@@ -5,7 +5,9 @@
 //! build prompt are implemented: the causal general ledger (`ledger`), the
 //! pure-function business-rule pattern (`business_rules`), accounts payable
 //! (`ap`), accounts receivable (`ar`), treasury (`treasury`), tax (`tax`),
-//! and budget (`budget`).
+//! and budget (`budget`). `narrative` generates CFO-style analysis memos
+//! from computed metrics, and is also reachable via the re-exported
+//! `generate_narrative!` proc macro.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -21,5 +23,8 @@ pub mod budget;
 pub mod business_rules;
 pub mod error;
 pub mod ledger;
+pub mod narrative;
 pub mod tax;
 pub mod treasury;
+
+pub use casiros_macros::generate_narrative;
