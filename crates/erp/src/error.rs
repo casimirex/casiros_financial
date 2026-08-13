@@ -2,6 +2,7 @@
 
 use crate::ledger::account::AccountCode;
 use casiros_core::error::CalculationError;
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use thiserror::Error;
 use uuid::Uuid;
@@ -53,6 +54,15 @@ pub enum ErpError {
         balance_due: Decimal,
         /// The rejected payment amount.
         payment: Decimal,
+    },
+
+    /// An ASC 606 ratable-recognition period had its end on or before its start.
+    #[error("invalid revenue recognition period: end {end} is not after start {start}")]
+    InvalidRecognitionPeriod {
+        /// The period's start date.
+        start: NaiveDate,
+        /// The period's (invalid) end date.
+        end: NaiveDate,
     },
 
     /// A `casiros_core` formula call failed while computing a ledger value.

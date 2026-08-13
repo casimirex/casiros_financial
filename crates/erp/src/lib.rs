@@ -3,8 +3,8 @@
 //! Enterprise logic built on the [`casiros_core`] domain layer and the
 //! [`casiros_dag`] causality engine. This crate is being built incrementally:
 //! the causal general ledger (`ledger`), the pure-function business-rule
-//! pattern (`business_rules`), and accounts payable (`ap`) are complete;
-//! accounts receivable, treasury, tax, and budget are follow-up work.
+//! pattern (`business_rules`), accounts payable (`ap`), and accounts
+//! receivable (`ar`) are complete; treasury, tax, and budget are follow-up work.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -15,6 +15,7 @@
 #![allow(clippy::doc_markdown)]
 
 pub mod ap;
+pub mod ar;
 pub mod business_rules;
 pub mod error;
 pub mod ledger;
