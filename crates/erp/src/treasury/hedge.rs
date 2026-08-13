@@ -7,13 +7,15 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// An FX forward contract: an agreement to exchange `notional` units of
 /// `currency` at `forward_rate` on `settlement_date`, used to hedge an
 /// offsetting foreign-currency exposure.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ForwardContract {
     /// The amount of foreign currency being hedged.
+    #[schema(value_type = Decimal)]
     pub notional: Dollar,
     /// The foreign currency this contract is denominated in.
     pub currency: CurrencyCode,

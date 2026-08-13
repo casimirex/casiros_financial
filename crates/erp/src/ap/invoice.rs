@@ -7,14 +7,15 @@ use casiros_core::types::Dollar;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// A unique identifier for an [`ApInvoice`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct ApInvoiceId(pub Uuid);
 
 /// An accounts-payable invoice's settlement status.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum ApInvoiceStatus {
     /// No payments have been applied yet.
     Open,
@@ -25,7 +26,7 @@ pub enum ApInvoiceStatus {
 }
 
 /// An accounts-payable invoice received from a supplier.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ApInvoice {
     /// This invoice's unique id.
     pub id: ApInvoiceId,
@@ -36,10 +37,12 @@ pub struct ApInvoice {
     /// The date the invoice was issued.
     pub invoice_date: NaiveDate,
     /// The original invoice amount.
+    #[schema(value_type = Decimal)]
     pub amount: Dollar,
     /// The payment terms governing this invoice's due date and any discount.
     pub terms: PaymentTerms,
     /// The total amount paid against this invoice so far.
+    #[schema(value_type = Decimal)]
     pub amount_paid: Dollar,
     /// This invoice's current settlement status.
     pub status: ApInvoiceStatus,
@@ -148,7 +151,7 @@ impl ApInvoice {
 }
 
 /// A standard accounts-payable aging bucket.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum AgingBucket {
     /// Not yet past due.
     Current,
@@ -182,17 +185,22 @@ pub fn aging_bucket(
 }
 
 /// Total balance due per aging bucket, across a set of invoices.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize, ToSchema)]
 pub struct AgingReport {
     /// Total balance due, not yet past due.
+    #[schema(value_type = Decimal)]
     pub current: Dollar,
     /// Total balance due, 1-30 days past due.
+    #[schema(value_type = Decimal)]
     pub days_1_to_30: Dollar,
     /// Total balance due, 31-60 days past due.
+    #[schema(value_type = Decimal)]
     pub days_31_to_60: Dollar,
     /// Total balance due, 61-90 days past due.
+    #[schema(value_type = Decimal)]
     pub days_61_to_90: Dollar,
     /// Total balance due, more than 90 days past due.
+    #[schema(value_type = Decimal)]
     pub over_90: Dollar,
 }
 

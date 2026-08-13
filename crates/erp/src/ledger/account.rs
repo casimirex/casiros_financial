@@ -3,10 +3,11 @@
 use crate::error::ErpError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 /// The five fundamental account types, determining an account's normal
 /// (debit- or credit-increasing) balance side.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum AccountType {
     /// Resources owned by the entity. Normal balance: debit.
     Asset,
@@ -36,11 +37,13 @@ impl AccountType {
 ///
 /// `Copy + Eq + Hash`, so it can be used directly as a
 /// [`casiros_dag::graph::CausalityEngine`] node for roll-up dependency tracking.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
+)]
 pub struct AccountCode(pub u32);
 
 /// A single entry in the chart of accounts.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Account {
     /// This account's unique code.
     pub code: AccountCode,

@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
+use utoipa::ToSchema;
 
 /// One variant per public formula in `casiros_core`. Each variant corresponds
 /// exactly to a function of the same name (in `snake_case`) in the matching
 /// `casiros_core` module.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub enum FormulaNode {
     /// Corresponds to [`casiros_core::general::future_value`].
     FutureValue,

@@ -2,6 +2,7 @@
 
 use actix_web::{HttpResponse, ResponseError, http::StatusCode};
 use casiros_core::error::CalculationError;
+use casiros_erp::error::ErpError;
 use serde::Serialize;
 
 /// The error type returned by every API handler.
@@ -22,6 +23,10 @@ pub enum AppError {
     #[error(transparent)]
     Calculation(#[from] CalculationError),
 
+    /// A `casiros_erp` operation failed.
+    #[error(transparent)]
+    Erp(#[from] ErpError),
+
     /// An invariant the handler expected was violated; this indicates a bug
     /// rather than a client error.
     #[error("internal error: {0}")]
@@ -34,6 +39,25 @@ struct ErrorBody {
     error: String,
 }
 
+/// Maps one [`ErpError`] variant to the HTTP status that best fits it,
+/// rather than collapsing every ERP failure onto a single status code.
+fn erp_status_code(err: &ErpError) -> StatusCode {
+    match err {
+        ErpError::DuplicateAccount(_) | ErpError::PeriodClosed(_) => StatusCode::CONFLICT,
+        ErpError::UnknownAccount(_) | ErpError::UnknownDriver(_) => StatusCode::NOT_FOUND,
+        ErpError::UnbalancedEntry { .. }
+        | ErpError::InvalidLine(_)
+        | ErpError::InvalidRecognitionPeriod { .. }
+        | ErpError::InvalidCurrencyCode(_)
+        | ErpError::InvalidTaxBrackets(_)
+        | ErpError::PaymentExceedsBalance { .. }
+        | ErpError::CurrencyMismatch { .. } => StatusCode::BAD_REQUEST,
+        // A cyclic hierarchy or an underlying calculation failure reflects
+        // the current *state* being unprocessable, not a malformed request.
+        ErpError::CyclicHierarchy(_) | ErpError::Calculation(_) => StatusCode::UNPROCESSABLE_ENTITY,
+    }
+}
+
 impl ResponseError for AppError {
     fn status_code(&self) -> StatusCode {
         match self {
@@ -43,6 +67,7 @@ impl ResponseError for AppError {
             // caller supplied inputs that violate a formula's domain
             // preconditions (e.g. a zero denominator) — that's a client error.
             Self::Calculation(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            Self::Erp(err) => erp_status_code(err),
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

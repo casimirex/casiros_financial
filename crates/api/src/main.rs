@@ -9,6 +9,7 @@ use actix_web::{App, HttpServer, web};
 use casiros_api::middleware::rate_limit::RateLimiter;
 use casiros_api::middleware::tracing::{REQUEST_ID_HEADER, new_request_id};
 use casiros_api::routes;
+use casiros_api::state::AppState;
 use std::time::Duration;
 use tracing::Instrument;
 use tracing_subscriber::EnvFilter;
@@ -36,10 +37,15 @@ async fn main() -> std::io::Result<()> {
     tracing::info!(bind_addr = %bind_addr, "starting CASIROS API server");
 
     let rate_limiter = web::Data::new(RateLimiter::new(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW));
+    // Created once, outside the HttpServer factory closure, and shared (via
+    // web::Data's Arc) across every worker thread — see routes::configure's
+    // doc comment for why this can't be created inside `configure` itself.
+    let app_state = web::Data::new(AppState::new());
 
     HttpServer::new(move || {
         App::new()
             .app_data(rate_limiter.clone())
+            .app_data(app_state.clone())
             .wrap(Cors::permissive())
             .wrap_fn(|req, srv| {
                 let request_id = new_request_id();

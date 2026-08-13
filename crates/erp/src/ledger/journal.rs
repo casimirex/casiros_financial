@@ -10,10 +10,11 @@ use casiros_dag::graph::FormulaNode;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// Identifies what kind of business document originated a [`JournalEntry`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum SourceDocument {
     /// A manually-entered adjustment, with no upstream business document.
     ManualEntry,
@@ -40,13 +41,15 @@ pub enum SourceDocument {
 
 /// A single debit or credit line within a [`JournalEntry`]. Exactly one of
 /// `debit`/`credit` is non-zero.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct JournalLine {
     /// The account this line posts to.
     pub account: AccountCode,
     /// The debit amount, or zero if this is a credit line.
+    #[schema(value_type = Decimal)]
     pub debit: Dollar,
     /// The credit amount, or zero if this is a debit line.
+    #[schema(value_type = Decimal)]
     pub credit: Dollar,
     /// If this line's amount was computed by a `casiros_core` formula, which one.
     pub causal_formula: Option<FormulaNode>,
@@ -96,7 +99,7 @@ impl JournalLine {
 /// A causally-linked general ledger entry: not just debits and credits, but a
 /// record of *why* the entry exists, via [`Self::causal_parent`] and
 /// [`Self::source_document`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct JournalEntry {
     /// A unique identifier for this entry.
     pub id: Uuid,

@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 use tracing::{error, info, instrument};
+use utoipa::ToSchema;
 
 /// The request body for `POST /api/v1/calculate/{formula}`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CalculateRequest {
     /// The formula's named parameters, as decimal strings (e.g. `"1000.00"`).
     ///
@@ -23,7 +24,7 @@ pub struct CalculateRequest {
 }
 
 /// The response body for `POST /api/v1/calculate/{formula}`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CalculateResponse {
     /// The formula that was evaluated.
     pub formula: String,
@@ -47,6 +48,19 @@ const SERIES_FORMULAS: [FormulaNode; 3] = [
 /// decimal, or the formula requires a cash-flow series. Returns
 /// [`AppError::Calculation`] if the formula's own preconditions are violated
 /// (e.g. a zero denominator).
+#[utoipa::path(
+    post,
+    path = "/api/v1/calculate/{formula}",
+    params(("formula" = String, Path, description = "The formula's snake_case name, e.g. \"future_value\"")),
+    request_body = CalculateRequest,
+    responses(
+        (status = 200, description = "The computed result", body = CalculateResponse),
+        (status = 400, description = "Invalid decimal parameter, or the formula needs a cash-flow series"),
+        (status = 404, description = "Unknown formula name"),
+        (status = 422, description = "A formula precondition was violated (e.g. a zero denominator)"),
+    ),
+    tag = "calculate"
+)]
 #[instrument(name = "POST /calculate", skip(req))]
 pub async fn handle_calculate(
     path: web::Path<String>,

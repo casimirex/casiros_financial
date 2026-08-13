@@ -8,20 +8,22 @@ use casiros_core::types::Dollar;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// A unique identifier for a [`Receipt`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct ReceiptId(pub Uuid);
 
 /// An incoming cash receipt from a customer, not yet allocated to any invoice.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Receipt {
     /// This receipt's unique id.
     pub id: ReceiptId,
     /// The customer this cash was received from.
     pub customer: CustomerId,
     /// The amount received.
+    #[schema(value_type = Decimal)]
     pub amount: Dollar,
     /// The date the cash was received.
     pub date: NaiveDate,
@@ -51,11 +53,12 @@ impl Receipt {
 }
 
 /// How much of a [`Receipt`] was applied against one invoice.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ReceiptAllocation {
     /// The invoice this portion of the receipt was applied to.
     pub invoice: ArInvoiceId,
     /// The amount applied.
+    #[schema(value_type = Decimal)]
     pub amount_applied: Dollar,
 }
 

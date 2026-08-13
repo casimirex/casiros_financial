@@ -5,9 +5,10 @@ use casiros_core::types::Dollar;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// The three standard cash flow statement categories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum CashFlowCategory {
     /// Cash generated or consumed by core business operations.
     Operating,
@@ -18,13 +19,14 @@ pub enum CashFlowCategory {
 }
 
 /// A single expected (or actual) cash movement.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct CashFlowItem {
     /// Which cash flow statement category this item belongs to.
     pub category: CashFlowCategory,
     /// A human-readable description.
     pub description: String,
     /// The signed amount: positive is an inflow, negative is an outflow.
+    #[schema(value_type = Decimal)]
     pub amount: Dollar,
     /// The date this cash movement is expected (or occurred).
     pub date: NaiveDate,

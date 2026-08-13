@@ -6,10 +6,11 @@ use casiros_core::error::CalculationError;
 use casiros_core::types::Dollar;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// A unique identifier for a [`Customer`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct CustomerId(pub Uuid);
 
 impl CustomerId {
@@ -32,13 +33,14 @@ impl Default for CustomerId {
 /// are a general business concept, not specific to either side of a
 /// transaction, so AR and AP share the one implementation rather than
 /// duplicating it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Customer {
     /// This customer's unique id.
     pub id: CustomerId,
     /// The customer's name.
     pub name: String,
     /// The maximum outstanding receivable balance this customer may carry.
+    #[schema(value_type = Decimal)]
     pub credit_limit: Dollar,
     /// This customer's standard payment terms.
     pub payment_terms: PaymentTerms,

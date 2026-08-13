@@ -7,9 +7,10 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use utoipa::ToSchema;
 
 /// An ISO-4217-style three-letter currency code (e.g. `"USD"`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct CurrencyCode(pub [u8; 3]);
 
 impl CurrencyCode {
@@ -36,7 +37,7 @@ impl fmt::Display for CurrencyCode {
 
 /// A quoted exchange rate between two currencies as of a given date: one unit
 /// of `from` is worth `rate` units of `to`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ExchangeRate {
     /// The currency being converted from.
     pub from: CurrencyCode,
@@ -49,7 +50,7 @@ pub struct ExchangeRate {
 }
 
 /// A balance denominated in a foreign (non-functional) currency.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct FxExposure {
     /// The currency this exposure is denominated in.
     pub currency: CurrencyCode,

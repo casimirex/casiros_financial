@@ -16,6 +16,7 @@ rayon = "1.10"
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 rust_decimal_macros.workspace = true
 serde = { workspace = true, features = ["derive"] }
+utoipa = { version = "5", features = ["decimal"] }
 
 [dev-dependencies]
 proptest = "1.5"

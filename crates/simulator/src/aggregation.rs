@@ -5,9 +5,10 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Aggregate statistics for one metric across every scenario in a simulation run.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct SimulationResults {
     /// The number of values aggregated.
     pub sample_count: usize,

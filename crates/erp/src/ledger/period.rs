@@ -2,9 +2,12 @@
 
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// A calendar-month fiscal period, identified by year and month number (`1..=12`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, ToSchema,
+)]
 pub struct FiscalPeriod {
     /// The calendar year.
     pub year: i32,
@@ -42,7 +45,7 @@ impl FiscalPeriod {
 }
 
 /// Whether a fiscal period is still open for posting or has been closed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum PeriodStatus {
     /// New journal entries may be posted to this period.
     Open,

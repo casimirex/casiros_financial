@@ -5,12 +5,13 @@ use casiros_core::types::{Dollar, Ratio};
 use chrono::{Duration, NaiveDate};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::ledger::account::AccountCode;
 
 /// A unique identifier for a [`Supplier`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct SupplierId(pub Uuid);
 
 impl SupplierId {
@@ -30,11 +31,12 @@ impl Default for SupplierId {
 /// Payment terms: how many days until an invoice is due, and an optional
 /// early-payment discount (e.g. "2/10 net 30": 2% off if paid within 10 days,
 /// otherwise the full amount is due within 30).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct PaymentTerms {
     /// Days from the invoice date until the full amount is due.
     pub net_days: u32,
     /// The early-payment discount rate, if offered.
+    #[schema(value_type = Option<Decimal>)]
     pub discount_percent: Option<Ratio>,
     /// Days from the invoice date within which the discount applies.
     pub discount_days: Option<u32>,
@@ -132,7 +134,7 @@ impl PaymentTerms {
 }
 
 /// A supplier (vendor) master record.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Supplier {
     /// This supplier's unique id.
     pub id: SupplierId,

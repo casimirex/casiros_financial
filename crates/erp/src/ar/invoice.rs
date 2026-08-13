@@ -8,14 +8,15 @@ use casiros_core::types::Dollar;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 /// A unique identifier for an [`ArInvoice`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct ArInvoiceId(pub Uuid);
 
 /// An accounts-receivable invoice's collection status.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum ArInvoiceStatus {
     /// No receipts have been applied yet.
     Open,
@@ -33,7 +34,7 @@ pub enum ArInvoiceStatus {
 /// not the full 5-step ASC 606 model (contract combination, variable
 /// consideration, multi-element allocation), which is a contract-drafting and
 /// judgment exercise outside the scope of a pure formula/domain layer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum RecognitionMethod {
     /// The full amount is recognized once `recognition_date` is reached (e.g.
     /// delivery of goods).
@@ -52,7 +53,7 @@ pub enum RecognitionMethod {
 }
 
 /// An accounts-receivable invoice issued to a customer.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct ArInvoice {
     /// This invoice's unique id.
     pub id: ArInvoiceId,
@@ -63,12 +64,14 @@ pub struct ArInvoice {
     /// The date the invoice was issued.
     pub invoice_date: NaiveDate,
     /// The total invoice amount.
+    #[schema(value_type = Decimal)]
     pub amount: Dollar,
     /// The payment terms governing this invoice's due date.
     pub terms: PaymentTerms,
     /// How the underlying performance obligation is recognized under ASC 606.
     pub recognition_method: RecognitionMethod,
     /// The total amount collected against this invoice so far.
+    #[schema(value_type = Decimal)]
     pub amount_received: Dollar,
     /// This invoice's current collection status.
     pub status: ArInvoiceStatus,
@@ -236,7 +239,7 @@ impl ArInvoice {
 }
 
 /// An escalating collections action, driven by how overdue an invoice is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub enum DunningLevel {
     /// Not overdue: no action needed.
     None,

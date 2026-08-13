@@ -10,16 +10,18 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 /// A proposed batch payment to one supplier, covering one or more of its
 /// open invoices.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct PaymentProposal {
     /// The supplier to be paid.
     pub supplier: SupplierId,
     /// The invoices this payment would settle (fully or partially).
     pub invoices: Vec<ApInvoiceId>,
     /// The total amount proposed for this supplier.
+    #[schema(value_type = Decimal)]
     pub total_amount: Dollar,
 }
 

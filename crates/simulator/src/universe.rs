@@ -5,59 +5,78 @@ use casiros_core::types::{Dollar, Rate, Ratio};
 use casiros_core::{corporate, financial, markets};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// A single economic scenario: every raw input needed to compute a
 /// [`UniverseMetrics`], grouped by category. `Universe` carries only raw
 /// inputs — no derived or pre-computed values — so that every metric in
 /// [`UniverseMetrics`] can be traced to exactly one `casiros_core` formula call.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct Universe {
     // --- Macroeconomic ---
     /// The risk-free rate for this scenario.
+    #[schema(value_type = Decimal)]
     pub risk_free_rate: Rate,
     /// The inflation rate for this scenario.
+    #[schema(value_type = Decimal)]
     pub inflation_rate: Rate,
     /// The broad market's expected return for this scenario.
+    #[schema(value_type = Decimal)]
     pub market_return: Rate,
     /// The company's own portfolio/stock return for this scenario, used for Sharpe.
+    #[schema(value_type = Decimal)]
     pub portfolio_return: Rate,
     /// The standard deviation of the company's returns for this scenario.
     pub return_std_dev: Decimal,
 
     // --- Company-specific ---
     /// Total revenue for the period.
+    #[schema(value_type = Decimal)]
     pub revenue: Dollar,
     /// Cost of goods sold for the period.
+    #[schema(value_type = Decimal)]
     pub cogs: Dollar,
     /// Operating expenses for the period.
+    #[schema(value_type = Decimal)]
     pub operating_expenses: Dollar,
     /// Interest expense for the period.
+    #[schema(value_type = Decimal)]
     pub interest_expense: Dollar,
     /// The effective tax rate, in `[0, 1]`.
+    #[schema(value_type = Decimal)]
     pub tax_rate: Ratio,
     /// The company's equity beta.
     pub beta: Decimal,
     /// The scenario's assumed cost of equity (e.g. CAPM-derived upstream of this crate).
+    #[schema(value_type = Decimal)]
     pub cost_of_equity: Rate,
     /// The scenario's assumed pre-tax cost of debt.
+    #[schema(value_type = Decimal)]
     pub cost_of_debt: Rate,
 
     // --- Balance sheet ---
     /// Total assets.
+    #[schema(value_type = Decimal)]
     pub total_assets: Dollar,
     /// Current assets.
+    #[schema(value_type = Decimal)]
     pub current_assets: Dollar,
     /// Inventory (a subset of current assets).
+    #[schema(value_type = Decimal)]
     pub inventory: Dollar,
     /// Current liabilities.
+    #[schema(value_type = Decimal)]
     pub current_liabilities: Dollar,
     /// Total liabilities.
+    #[schema(value_type = Decimal)]
     pub total_liabilities: Dollar,
     /// Total shareholders' equity.
+    #[schema(value_type = Decimal)]
     pub total_equity: Dollar,
 
     // --- Market ---
     /// The market share price.
+    #[schema(value_type = Decimal)]
     pub share_price: Dollar,
     /// The number of shares outstanding.
     pub shares_outstanding: Decimal,
@@ -65,29 +84,40 @@ pub struct Universe {
 
 /// The computed outputs for a single [`Universe`]. Every field is produced by
 /// exactly one `casiros_core` function call in [`compute_universe_metrics`].
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct UniverseMetrics {
     /// Earnings before interest and taxes (`revenue - cogs - operating_expenses`).
+    #[schema(value_type = Decimal)]
     pub ebit: Dollar,
     /// Net income after interest and tax.
+    #[schema(value_type = Decimal)]
     pub net_income: Dollar,
     /// [`financial::profit_margin`] of `net_income` over `revenue`.
+    #[schema(value_type = Decimal)]
     pub profit_margin: Ratio,
     /// [`financial::return_on_equity`].
+    #[schema(value_type = Decimal)]
     pub return_on_equity: Ratio,
     /// [`financial::return_on_assets`].
+    #[schema(value_type = Decimal)]
     pub return_on_assets: Ratio,
     /// [`financial::current_ratio`].
+    #[schema(value_type = Decimal)]
     pub current_ratio: Ratio,
     /// [`financial::quick_ratio`].
+    #[schema(value_type = Decimal)]
     pub quick_ratio: Ratio,
     /// [`financial::debt_to_equity`].
+    #[schema(value_type = Decimal)]
     pub debt_to_equity: Ratio,
     /// [`financial::interest_coverage`].
+    #[schema(value_type = Decimal)]
     pub interest_coverage: Ratio,
     /// [`financial::asset_turnover`].
+    #[schema(value_type = Decimal)]
     pub asset_turnover: Ratio,
     /// [`corporate::wacc`], using market capitalization as the equity value.
+    #[schema(value_type = Decimal)]
     pub wacc: Rate,
     /// [`markets::sharpe_ratio`] of the scenario's portfolio return.
     pub sharpe_ratio: Decimal,

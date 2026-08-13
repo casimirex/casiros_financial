@@ -11,9 +11,10 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{error, info, instrument};
+use utoipa::ToSchema;
 
 /// The request body for both the synchronous and streaming simulate endpoints.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct SimulateRequest {
     /// The baseline scenario to perturb.
     pub baseline: Universe,
@@ -22,7 +23,7 @@ pub struct SimulateRequest {
 }
 
 /// The response body for `POST /api/v1/simulate`.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SimulateResponse {
     /// How many scenarios were requested.
     pub scenarios_requested: u32,
@@ -128,6 +129,13 @@ fn run_simulation_and_aggregate(
 ///
 /// Returns [`AppError::Calculation`] if scenario generation or aggregation fails.
 /// Returns [`AppError::Internal`] if the blocking task itself fails to run.
+#[utoipa::path(
+    post,
+    path = "/api/v1/simulate",
+    request_body = SimulateRequest,
+    responses((status = 200, description = "Aggregated statistics for every metric", body = SimulateResponse)),
+    tag = "simulate"
+)]
 #[instrument(name = "POST /simulate", skip(req))]
 pub async fn handle_simulate(req: web::Json<SimulateRequest>) -> Result<HttpResponse, AppError> {
     let SimulateRequest { baseline, config } = req.into_inner();

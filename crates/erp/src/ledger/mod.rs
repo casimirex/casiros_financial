@@ -6,7 +6,7 @@ pub mod journal;
 pub mod period;
 
 use crate::error::ErpError;
-use account::{AccountCode, ChartOfAccounts};
+use account::{Account, AccountCode, ChartOfAccounts};
 use casiros_core::error::CalculationError;
 use casiros_core::types::Dollar;
 use journal::JournalEntry;
@@ -45,6 +45,17 @@ impl Ledger {
     #[must_use]
     pub fn chart(&self) -> &ChartOfAccounts {
         &self.chart
+    }
+
+    /// Registers a new account into this ledger's chart of accounts.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ErpError::DuplicateAccount`] if `account.code` is already
+    /// registered, or [`ErpError::UnknownAccount`] if `account.parent` is set
+    /// but not itself registered.
+    pub fn register_account(&mut self, account: Account) -> Result<(), ErpError> {
+        self.chart.register(account)
     }
 
     /// Every entry posted so far, in posting order.
