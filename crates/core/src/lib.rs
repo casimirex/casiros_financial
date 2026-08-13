@@ -17,6 +17,10 @@
 #![deny(unreachable_pub)]
 #![deny(rust_2018_idioms)]
 #![deny(rust_2024_compatibility)]
+// LaTeX math blocks (`\frac{R_p}{R_f}` etc.) are mandated by the "Mathematical Definition"
+// doc-comment pattern; clippy::pedantic's doc_markdown heuristic misreads every subscripted
+// variable as an un-backticked Rust identifier. Scoped allow, not a pedantic downgrade.
+#![allow(clippy::doc_markdown)]
 
 pub mod prelude {
     //! Re-exports for ergonomic use across the workspace.
