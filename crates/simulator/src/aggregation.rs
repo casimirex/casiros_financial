@@ -4,9 +4,10 @@ use casiros_core::error::CalculationError;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
+use serde::{Deserialize, Serialize};
 
 /// Aggregate statistics for one metric across every scenario in a simulation run.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct SimulationResults {
     /// The number of values aggregated.
     pub sample_count: usize,

@@ -159,6 +159,60 @@ impl FormulaNode {
             Self::InternalGrowthRate => "internal_growth_rate",
         }
     }
+
+    /// Parses a `snake_case` formula name (as produced by [`Self::name`]) back
+    /// into a [`FormulaNode`]. Used by `casiros-api` to resolve a formula name
+    /// supplied in a request path into the node to evaluate.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "future_value" => Some(Self::FutureValue),
+            "present_value" => Some(Self::PresentValue),
+            "annuity_future_value" => Some(Self::AnnuityFutureValue),
+            "annuity_present_value" => Some(Self::AnnuityPresentValue),
+            "perpetuity_present_value" => Some(Self::PerpetuityPresentValue),
+            "growing_perpetuity" => Some(Self::GrowingPerpetuity),
+            "effective_annual_rate" => Some(Self::EffectiveAnnualRate),
+            "continuous_compounding" => Some(Self::ContinuousCompounding),
+            "return_on_equity" => Some(Self::ReturnOnEquity),
+            "return_on_assets" => Some(Self::ReturnOnAssets),
+            "return_on_investment" => Some(Self::ReturnOnInvestment),
+            "profit_margin" => Some(Self::ProfitMargin),
+            "asset_turnover" => Some(Self::AssetTurnover),
+            "equity_multiplier" => Some(Self::EquityMultiplier),
+            "dupont_roe" => Some(Self::DupontRoe),
+            "current_ratio" => Some(Self::CurrentRatio),
+            "quick_ratio" => Some(Self::QuickRatio),
+            "debt_to_equity" => Some(Self::DebtToEquity),
+            "interest_coverage" => Some(Self::InterestCoverage),
+            "inventory_turnover" => Some(Self::InventoryTurnover),
+            "cash_conversion_cycle" => Some(Self::CashConversionCycle),
+            "net_interest_margin" => Some(Self::NetInterestMargin),
+            "loan_to_deposit_ratio" => Some(Self::LoanToDepositRatio),
+            "capital_adequacy_ratio" => Some(Self::CapitalAdequacyRatio),
+            "provision_coverage" => Some(Self::ProvisionCoverage),
+            "beta" => Some(Self::Beta),
+            "sharpe_ratio" => Some(Self::SharpeRatio),
+            "treynor_ratio" => Some(Self::TreynorRatio),
+            "jensens_alpha" => Some(Self::JensensAlpha),
+            "value_at_risk" => Some(Self::ValueAtRisk),
+            "expected_shortfall" => Some(Self::ExpectedShortfall),
+            "dividend_discount_model" => Some(Self::DividendDiscountModel),
+            "discounted_cash_flow" => Some(Self::DiscountedCashFlow),
+            "bond_price" => Some(Self::BondPrice),
+            "yield_to_maturity" => Some(Self::YieldToMaturity),
+            "duration" => Some(Self::Duration),
+            "modified_duration" => Some(Self::ModifiedDuration),
+            "convexity" => Some(Self::Convexity),
+            "wacc" => Some(Self::Wacc),
+            "free_cash_flow_to_firm" => Some(Self::FreeCashFlowToFirm),
+            "free_cash_flow_to_equity" => Some(Self::FreeCashFlowToEquity),
+            "economic_value_added" => Some(Self::EconomicValueAdded),
+            "sustainable_growth_rate" => Some(Self::SustainableGrowthRate),
+            "internal_growth_rate" => Some(Self::InternalGrowthRate),
+            _ => None,
+        }
+    }
 }
 
 /// A directed acyclic graph over any `Copy + Eq + Hash` node type, wrapping

@@ -1,0 +1,35 @@
+[package]
+name = "casiros-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# casiros-erp is deliberately NOT a dependency yet: this pass builds the
+# server foundation plus /calculate and /simulate (calculate.rs, simulate.rs
+# per section 7.2), not the ERP CRUD routes (ledger.rs, journal.rs, ap.rs,
+# ar.rs, treasury.rs), which are substantial enough to warrant their own pass.
+#
+# actix-ws (not the spec-named actix-web-actors) provides the WebSocket
+# streaming endpoint: actix-web-actors is published as "4.3.1+deprecated" on
+# crates.io. The spec itself offers "actix-web-actors or raw WebSocket
+# handlers" as alternatives; actix-ws is exactly the modern raw-handler,
+# non-actor approach.
+[dependencies]
+actix-cors = "0.7"
+actix-web = "4"
+actix-ws = "0.4"
+casiros-core = { path = "../core" }
+casiros-dag = { path = "../dag" }
+casiros-simulator = { path = "../simulator" }
+futures-util = "0.3"
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = "1.0"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+uuid = { version = "1.11", features = ["v4"] }
+
+[dev-dependencies]
+rust_decimal_macros.workspace = true

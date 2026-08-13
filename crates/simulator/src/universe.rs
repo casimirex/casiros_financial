@@ -4,12 +4,13 @@ use casiros_core::error::CalculationError;
 use casiros_core::types::{Dollar, Rate, Ratio};
 use casiros_core::{corporate, financial, markets};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 
 /// A single economic scenario: every raw input needed to compute a
 /// [`UniverseMetrics`], grouped by category. `Universe` carries only raw
 /// inputs — no derived or pre-computed values — so that every metric in
 /// [`UniverseMetrics`] can be traced to exactly one `casiros_core` formula call.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Universe {
     // --- Macroeconomic ---
     /// The risk-free rate for this scenario.
@@ -64,7 +65,7 @@ pub struct Universe {
 
 /// The computed outputs for a single [`Universe`]. Every field is produced by
 /// exactly one `casiros_core` function call in [`compute_universe_metrics`].
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct UniverseMetrics {
     /// Earnings before interest and taxes (`revenue - cogs - operating_expenses`).
     pub ebit: Dollar,

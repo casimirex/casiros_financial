@@ -9,6 +9,7 @@ use rand_distr::{Distribution, LogNormal, Normal};
 use rayon::prelude::*;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
 /// Relative standard deviation applied to strictly-positive "scale" fields
 /// (revenue, assets, share price, ...) via a log-normal perturbation.
@@ -18,7 +19,7 @@ const SCALE_RELATIVE_STD_DEV: f64 = 0.20;
 const RATE_ABSOLUTE_STD_DEV: f64 = 0.02;
 
 /// Configuration for a Monte Carlo simulation run.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct MonteCarloConfig {
     /// The number of scenarios to generate.
     pub iterations: u32,
