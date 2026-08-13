@@ -1,0 +1,90 @@
+//! Budget-versus-actual variance analysis.
+
+use crate::error::ErpError;
+use crate::ledger::account::{AccountCode, AccountType};
+use casiros_core::error::CalculationError;
+use casiros_core::types::{Dollar, Ratio};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+
+/// The result of comparing one account's budgeted amount to its actual amount.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct VarianceResult {
+    /// The account this variance applies to.
+    pub account: AccountCode,
+    /// The budgeted amount.
+    pub budget: Dollar,
+    /// The actual amount.
+    pub actual: Dollar,
+    /// `actual - budget`.
+    pub variance: Dollar,
+    /// `variance / budget`, or `None` if `budget` is zero (the percentage is undefined).
+    pub variance_percent: Option<Ratio>,
+    /// Whether this variance is favorable, per [`analyze_variance`]'s
+    /// account-type convention.
+    pub favorable: bool,
+}
+
+/// Compares `actual` to `budget` for `account`, classifying the variance as
+/// favorable or unfavorable based on `account_type`.
+///
+/// "More than budgeted" is favorable for accounts that increase the entity's
+/// position ([`AccountType::Revenue`], [`AccountType::Asset`],
+/// [`AccountType::Equity`]); "less than budgeted" is favorable for accounts
+/// that represent an obligation or cost ([`AccountType::Liability`],
+/// [`AccountType::Expense`]).
+///
+/// # Errors
+///
+/// Returns [`CalculationError::Overflow`] if the variance or its percentage overflows.
+pub fn analyze_variance(
+    account: AccountCode,
+    account_type: AccountType,
+    budget: Dollar,
+    actual: Dollar,
+) -> Result<VarianceResult, ErpError> {
+    let formula = "analyze_variance";
+    let variance = actual
+        .checked_sub(budget)
+        .ok_or(CalculationError::Overflow { formula })?;
+    let variance_percent = if budget.is_zero() {
+        None
+    } else {
+        Some(
+            variance
+                .checked_div(budget)
+                .ok_or(CalculationError::Overflow { formula })?,
+        )
+    };
+    let favorable = match account_type {
+        AccountType::Revenue | AccountType::Asset | AccountType::Equity => {
+            variance >= Decimal::ZERO
+        }
+        AccountType::Liability | AccountType::Expense => variance <= Decimal::ZERO,
+    };
+    Ok(VarianceResult {
+        account,
+        budget,
+        actual,
+        variance,
+        variance_percent,
+        favorable,
+    })
+}
+
+/// Runs [`analyze_variance`] across several `(account, account_type, budget,
+/// actual)` tuples, e.g. every line item in a budget-to-actuals report.
+///
+/// # Errors
+///
+/// Returns whatever [`analyze_variance`] returns for the first failing entry.
+pub fn variance_report(
+    entries: &[(AccountCode, AccountType, Dollar, Dollar)],
+) -> Result<Vec<VarianceResult>, ErpError> {
+    entries
+        .iter()
+        .map(|&(account, account_type, budget, actual)| {
+            analyze_variance(account, account_type, budget, actual)
+        })
+        .collect()
+}

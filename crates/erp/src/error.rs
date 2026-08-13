@@ -80,6 +80,15 @@ pub enum ErpError {
         actual: super::treasury::fx::CurrencyCode,
     },
 
+    /// A tax jurisdiction's brackets were malformed (empty, or a non-final
+    /// bracket left unbounded).
+    #[error("invalid tax brackets: {0}")]
+    InvalidTaxBrackets(String),
+
+    /// A budget line item referenced a driver name not present in the model.
+    #[error("budget model has no driver named {0:?}")]
+    UnknownDriver(String),
+
     /// A `casiros_core` formula call failed while computing a ledger value.
     #[error(transparent)]
     Calculation(#[from] CalculationError),
