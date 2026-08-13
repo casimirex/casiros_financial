@@ -42,6 +42,19 @@ pub enum ErpError {
     #[error("cyclic account roll-up hierarchy: {0}")]
     CyclicHierarchy(String),
 
+    /// A payment against an AP invoice exceeded that invoice's remaining balance due.
+    #[error(
+        "payment of {payment} against invoice {invoice} exceeds its balance due of {balance_due}"
+    )]
+    PaymentExceedsBalance {
+        /// The invoice's id.
+        invoice: Uuid,
+        /// The invoice's balance due before this payment.
+        balance_due: Decimal,
+        /// The rejected payment amount.
+        payment: Decimal,
+    },
+
     /// A `casiros_core` formula call failed while computing a ledger value.
     #[error(transparent)]
     Calculation(#[from] CalculationError),
