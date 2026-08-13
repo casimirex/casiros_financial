@@ -69,4 +69,12 @@ pub enum CalculationError {
         /// The name of the missing parameter.
         parameter: &'static str,
     },
+
+    /// A dependency graph (e.g. the DAG causality engine) could not be topologically
+    /// ordered because it contains a cycle.
+    #[error("Cyclic dependency detected: {details}")]
+    CyclicDependency {
+        /// Description of the cycle, as reported by the graph algorithm.
+        details: String,
+    },
 }
