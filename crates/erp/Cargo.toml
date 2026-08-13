@@ -1,0 +1,21 @@
+[package]
+name = "casiros-erp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+# casiros-simulator is deliberately NOT a dependency yet: nothing built in this
+# pass (ledger + business rules) needs Monte Carlo scenarios. It becomes a real
+# dependency once budget/ (driver-based planning under uncertainty) is built.
+[dependencies]
+casiros-core = { path = "../core" }
+casiros-dag = { path = "../dag" }
+chrono = { version = "0.4", features = ["serde"] }
+rust_decimal = { workspace = true, features = ["serde-with-str"] }
+rust_decimal_macros.workspace = true
+serde = { workspace = true, features = ["derive"] }
+thiserror.workspace = true
+uuid = { version = "1.11", features = ["v4", "serde"] }
+
+[dev-dependencies]
+serde_json = "1.0"

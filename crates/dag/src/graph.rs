@@ -1,13 +1,17 @@
-//! The causality graph: one node per [`casiros_core`] formula, edges for data dependency.
+//! The causality graph: a generic DAG engine, plus [`FormulaNode`] — one node
+//! per [`casiros_core`] formula, for edges representing formula data dependency.
 
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 /// One variant per public formula in `casiros_core`. Each variant corresponds
 /// exactly to a function of the same name (in `snake_case`) in the matching
 /// `casiros_core` module.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FormulaNode {
     /// Corresponds to [`casiros_core::general::future_value`].
     FutureValue,
@@ -157,30 +161,42 @@ impl FormulaNode {
     }
 }
 
-/// A directed acyclic graph over [`FormulaNode`]s, wrapping `petgraph` for
-/// topological ordering and cycle detection.
-#[derive(Debug, Default)]
-pub struct CausalityEngine {
+/// A directed acyclic graph over any `Copy + Eq + Hash` node type, wrapping
+/// `petgraph` for topological ordering and cycle detection.
+///
+/// Originally specific to [`FormulaNode`]; genericized once the causal ledger
+/// (`casiros-erp`) needed the same topological-ordering and cycle-detection
+/// machinery for account roll-up dependencies, which are not `FormulaNode`s.
+/// [`FormulaNode`]-specific behavior (parameter-name resolution) stays on
+/// `FormulaNode` itself; this type only knows about graph structure.
+#[derive(Debug)]
+pub struct CausalityEngine<N> {
     /// The underlying graph. Edge `A -> B` means "B depends on A".
-    graph: DiGraph<FormulaNode, ()>,
+    graph: DiGraph<N, ()>,
     /// Reverse lookup from node to its graph index, so repeated inserts of the
-    /// same [`FormulaNode`] are idempotent.
-    indices: HashMap<FormulaNode, NodeIndex>,
+    /// same node are idempotent.
+    indices: HashMap<N, NodeIndex>,
 }
 
-impl CausalityEngine {
-    /// Creates an empty causality graph.
-    #[must_use]
-    pub fn new() -> Self {
+impl<N> Default for CausalityEngine<N> {
+    fn default() -> Self {
         Self {
             graph: DiGraph::new(),
             indices: HashMap::new(),
         }
     }
+}
+
+impl<N: Copy + Eq + Hash> CausalityEngine<N> {
+    /// Creates an empty causality graph.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Ensures `node` is present in the graph, returning its index. Calling this
     /// twice for the same node returns the same index rather than duplicating it.
-    pub fn add_node(&mut self, node: FormulaNode) -> NodeIndex {
+    pub fn add_node(&mut self, node: N) -> NodeIndex {
         if let Some(&index) = self.indices.get(&node) {
             return index;
         }
@@ -192,25 +208,27 @@ impl CausalityEngine {
     /// Declares that `to` depends on `from`: `from` must be evaluated first, and
     /// its result is available for `to` to consume. Both nodes are added to the
     /// graph if not already present.
-    pub fn add_dependency(&mut self, from: FormulaNode, to: FormulaNode) {
+    pub fn add_dependency(&mut self, from: N, to: N) {
         let from_index = self.add_node(from);
         let to_index = self.add_node(to);
         self.graph.update_edge(from_index, to_index, ());
     }
+}
 
+impl<N: Copy + Eq + Hash + Debug> CausalityEngine<N> {
     /// Returns a valid evaluation order: every node appears after all the nodes
     /// it depends on.
     ///
     /// # Errors
     ///
     /// Returns `Err` describing the cycle if the graph is not a DAG. Cycle
-    /// detection is a hard error — a financial model that depends on itself
-    /// cannot be computed.
-    pub fn execution_order(&self) -> Result<Vec<FormulaNode>, String> {
+    /// detection is a hard error — a financial model (or a ledger roll-up
+    /// hierarchy) that depends on itself cannot be computed.
+    pub fn execution_order(&self) -> Result<Vec<N>, String> {
         toposort(&self.graph, None).map_or_else(
             |cycle| {
                 let node = self.graph[cycle.node_id()];
-                Err(format!("cyclic dependency detected at '{}'", node.name()))
+                Err(format!("cyclic dependency detected at {node:?}"))
             },
             |indices| Ok(indices.into_iter().map(|index| self.graph[index]).collect()),
         )

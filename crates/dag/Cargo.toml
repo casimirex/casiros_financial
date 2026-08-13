@@ -8,6 +8,7 @@ rust-version.workspace = true
 casiros-core = { path = "../core" }
 petgraph = "0.6"
 rust_decimal.workspace = true
+serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 
 [dev-dependencies]

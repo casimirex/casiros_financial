@@ -530,7 +530,7 @@ fn evaluate_node(node: FormulaNode, ctx: &EvaluationContext) -> Result<Decimal, 
 /// produces (including [`CalculationError::MissingInput`] if a required
 /// parameter is present in neither `ctx.results` nor `ctx.inputs`).
 pub fn evaluate_dag(
-    engine: &CausalityEngine,
+    engine: &CausalityEngine<FormulaNode>,
     ctx: &mut EvaluationContext,
 ) -> Result<(), CalculationError> {
     let order = engine
