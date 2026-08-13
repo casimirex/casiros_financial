@@ -65,6 +65,21 @@ pub enum ErpError {
         end: NaiveDate,
     },
 
+    /// A currency code was not exactly three ASCII uppercase letters (ISO 4217 style).
+    #[error("invalid currency code {0:?}: must be exactly three ASCII uppercase letters")]
+    InvalidCurrencyCode(String),
+
+    /// An exchange rate's `from` currency did not match the exposure being converted.
+    #[error(
+        "exchange rate is denominated in {actual:?}, but the exposure is denominated in {expected:?}"
+    )]
+    CurrencyMismatch {
+        /// The currency the exposure is actually denominated in.
+        expected: super::treasury::fx::CurrencyCode,
+        /// The currency the exchange rate's `from` field specified.
+        actual: super::treasury::fx::CurrencyCode,
+    },
+
     /// A `casiros_core` formula call failed while computing a ledger value.
     #[error(transparent)]
     Calculation(#[from] CalculationError),
