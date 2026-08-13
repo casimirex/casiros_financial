@@ -1,0 +1,9 @@
+[build]
+rustflags = [
+    "-D", "warnings",
+    "-D", "clippy::pedantic",
+    "-D", "clippy::cognitive_complexity",
+    "-D", "unreachable_pub",
+    "-D", "rust_2018_idioms",
+    "-D", "rust_2024_compatibility",
+]
