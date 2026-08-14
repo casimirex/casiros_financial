@@ -10,6 +10,7 @@ import {
   Landmark,
   Percent,
   PieChart,
+  Waypoints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { to: "/treasury", label: "Treasury", icon: Landmark, end: false },
   { to: "/tax", label: "Tax", icon: Percent, end: false },
   { to: "/budget", label: "Budget", icon: PieChart, end: false },
+  { to: "/causality", label: "Causality", icon: Waypoints, end: false },
 ] as const;
 
 export function Sidebar() {

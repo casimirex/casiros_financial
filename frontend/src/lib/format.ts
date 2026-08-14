@@ -47,3 +47,26 @@ export function bytesToCurrencyCode(bytes: [number, number, number]): string {
 export function shortId(id: string): string {
   return id.slice(0, 8);
 }
+
+// FormulaNode crosses the wire as its bare Rust variant name (e.g.
+// "DupontRoe" — see api/types.ts's FormulaNodeVariant comment), not the
+// snake_case name FormulaNode::name()/from_name() use. These convert
+// between the two so the frontend can build /causality/formulas/{name} URLs
+// and human-readable labels from a PascalCase wire value.
+export function pascalToSnakeCase(pascal: string): string {
+  return pascal.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+export function snakeToPascalCase(snake: string): string {
+  return snake
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+}
+
+export function titleCase(snake: string): string {
+  return snake
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}

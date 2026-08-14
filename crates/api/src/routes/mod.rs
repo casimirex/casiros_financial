@@ -4,6 +4,7 @@ pub mod ap;
 pub mod ar;
 pub mod budget;
 pub mod calculate;
+pub mod causality;
 pub mod health;
 pub mod journal;
 pub mod ledger;
@@ -58,6 +59,8 @@ use utoipa_swagger_ui::SwaggerUi;
         budget::list_line_items,
         budget::total,
         budget::variance,
+        causality::list_formulas,
+        causality::formula_graph,
     ),
     tags(
         (name = "narrative", description = "CFO-style narrative memo generation"),
@@ -68,6 +71,7 @@ use utoipa_swagger_ui::SwaggerUi;
         (name = "treasury", description = "Cash forecasting, FX conversion, hedge effectiveness"),
         (name = "tax", description = "Progressive tax calculation, multi-jurisdiction aggregation, deferred tax"),
         (name = "budget", description = "Driver-based budget planning and variance analysis"),
+        (name = "causality", description = "Formula dependency graph introspection over casiros-dag"),
     )
 )]
 pub struct ApiDoc;
@@ -158,6 +162,14 @@ fn configure_budget(cfg: &mut web::ServiceConfig) {
     );
 }
 
+fn configure_causality(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/causality")
+            .route("/formulas", web::get().to(causality::list_formulas))
+            .route("/formulas/{name}", web::get().to(causality::formula_graph)),
+    );
+}
+
 /// Registers every implemented route (including Swagger UI and the raw
 /// `OpenAPI` document) onto `cfg`.
 ///
@@ -183,7 +195,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .configure(configure_ar)
             .configure(configure_treasury)
             .configure(configure_tax)
-            .configure(configure_budget),
+            .configure(configure_budget)
+            .configure(configure_causality),
     );
     cfg.route("/ws/simulate", web::get().to(simulate::ws_simulate));
     cfg.service(

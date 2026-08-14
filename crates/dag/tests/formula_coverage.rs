@@ -786,6 +786,11 @@ fn missing_series_input_is_a_missing_input_error() {
 
 // --- FormulaNode::name / from_name round-trip, and CausalityEngine basics --
 
+// FormulaNode::all() is itself a hand-written list (see graph.rs) — kept as
+// a separate literal here (rather than simply calling it) so this file's
+// round-trip test in `every_formula_node_name_round_trips_through_from_name`
+// stays a genuine cross-check of two independently-written enumerations,
+// not a tautology against the same list.
 const ALL_FORMULA_NODES: &[FormulaNode] = &[
     FormulaNode::FutureValue,
     FormulaNode::PresentValue,
@@ -834,6 +839,11 @@ const ALL_FORMULA_NODES: &[FormulaNode] = &[
 ];
 
 #[test]
+fn all_matches_the_independently_written_test_list() {
+    assert_eq!(FormulaNode::all(), ALL_FORMULA_NODES);
+}
+
+#[test]
 fn every_formula_node_name_round_trips_through_from_name() {
     assert_eq!(ALL_FORMULA_NODES.len(), 44);
     for node in ALL_FORMULA_NODES {
@@ -864,4 +874,45 @@ fn cyclic_dependency_is_rejected() {
     engine.add_dependency(FormulaNode::EconomicValueAdded, FormulaNode::Wacc);
     let result = evaluate_dag(&engine, &mut ctx);
     assert!(result.is_err());
+}
+
+// --- FormulaNode::parameters cross-checked against real evaluation --------
+//
+// `parameters()` hand-transcribes each eval_* function's `resolve` calls
+// (see graph.rs's doc comment on it) rather than deriving them, so an
+// omitted name there wouldn't fail to compile — it would just silently
+// misreport a formula's dependency wiring. This test catches that: for
+// every node, supplying exactly the names `parameters()` claims (as a safe
+// nonzero, whole-number scalar, or as a two-point series where the node
+// takes one) must never fail with `MissingInput` — a `MissingInput` error
+// here proves a real parameter was left out of the hand-written list.
+// (It cannot catch the opposite mistake — a spurious extra name — since an
+// unused input is silently ignored; the risk there is the same as any
+// hand-transcribed list, and each entry was cross-checked against
+// `frontend/src/features/calculator/formula-registry.ts`'s independently
+// maintained copy when this test was written.)
+
+#[test]
+fn parameters_lists_every_name_evaluation_actually_needs() {
+    for &node in ALL_FORMULA_NODES {
+        let mut ctx = EvaluationContext::new();
+        for &parameter in node.parameters() {
+            if parameter == "cash_flows" {
+                ctx.series_inputs
+                    .insert(parameter.to_string(), vec![dec!(2), dec!(2)]);
+            } else {
+                ctx.inputs.insert(parameter.to_string(), dec!(2));
+            }
+        }
+        let mut engine = CausalityEngine::new();
+        engine.add_node(node);
+        let result = evaluate_dag(&engine, &mut ctx);
+        if let Err(casiros_core::error::CalculationError::MissingInput { formula, parameter }) =
+            &result
+        {
+            panic!(
+                "{node:?}::parameters() is missing {parameter:?} — {formula} required it during evaluation"
+            );
+        }
+    }
 }

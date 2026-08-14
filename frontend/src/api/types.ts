@@ -324,3 +324,28 @@ export interface VarianceResult {
   variance_percent: DecimalString | null;
   favorable: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Causality — formula dependency graph introspection over casiros-dag
+//
+// FormulaNode derives plain serde::Serialize with no rename rule, so it
+// crosses the wire as its Rust variant name verbatim (e.g. "DupontRoe"),
+// NOT the snake_case name FormulaNode::name()/from_name() use — see
+// causalityFormulaToSnakeCase in features/causality for the conversion.
+export type FormulaNodeVariant = string;
+
+export interface ParameterInfo {
+  name: string;
+  upstream_formula: FormulaNodeVariant | null;
+}
+
+export interface FormulaMetadata {
+  formula: FormulaNodeVariant;
+  parameters: ParameterInfo[];
+}
+
+export interface DependencyGraphResponse {
+  target: FormulaNodeVariant;
+  nodes: FormulaMetadata[];
+  execution_order: FormulaNodeVariant[];
+}

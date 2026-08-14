@@ -9,6 +9,7 @@ import { ArPage } from "@/features/ar/ar-page";
 import { TreasuryPage } from "@/features/treasury/treasury-page";
 import { TaxPage } from "@/features/tax/tax-page";
 import { BudgetPage } from "@/features/budget/budget-page";
+import { CausalityPage } from "@/features/causality/causality-page";
 import { MultiverseFallback } from "./multiverse-fallback";
 
 // The Multiverse view pulls in three.js + react-three-fiber, by far the
@@ -36,4 +37,5 @@ export const router = createBrowserRouter([
   { path: "/treasury", element: <TreasuryPage /> },
   { path: "/tax", element: <TaxPage /> },
   { path: "/budget", element: <BudgetPage /> },
+  { path: "/causality", element: <CausalityPage /> },
 ]);

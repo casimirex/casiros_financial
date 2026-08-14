@@ -4,7 +4,7 @@
 use petgraph::algo::toposort;
 use petgraph::graph::{DiGraph, NodeIndex};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use utoipa::ToSchema;
@@ -214,6 +214,233 @@ impl FormulaNode {
             _ => None,
         }
     }
+
+    /// Every [`FormulaNode`] variant, in declaration order — the single
+    /// source of truth other crates should enumerate against rather than
+    /// hand-writing their own copy of the variant list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_dag::graph::FormulaNode;
+    ///
+    /// assert_eq!(FormulaNode::all().len(), 44);
+    /// assert!(FormulaNode::all().contains(&FormulaNode::Wacc));
+    /// ```
+    #[must_use]
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::FutureValue,
+            Self::PresentValue,
+            Self::AnnuityFutureValue,
+            Self::AnnuityPresentValue,
+            Self::PerpetuityPresentValue,
+            Self::GrowingPerpetuity,
+            Self::EffectiveAnnualRate,
+            Self::ContinuousCompounding,
+            Self::ReturnOnEquity,
+            Self::ReturnOnAssets,
+            Self::ReturnOnInvestment,
+            Self::ProfitMargin,
+            Self::AssetTurnover,
+            Self::EquityMultiplier,
+            Self::DupontRoe,
+            Self::CurrentRatio,
+            Self::QuickRatio,
+            Self::DebtToEquity,
+            Self::InterestCoverage,
+            Self::InventoryTurnover,
+            Self::CashConversionCycle,
+            Self::NetInterestMargin,
+            Self::LoanToDepositRatio,
+            Self::CapitalAdequacyRatio,
+            Self::ProvisionCoverage,
+            Self::Beta,
+            Self::SharpeRatio,
+            Self::TreynorRatio,
+            Self::JensensAlpha,
+            Self::ValueAtRisk,
+            Self::ExpectedShortfall,
+            Self::DividendDiscountModel,
+            Self::DiscountedCashFlow,
+            Self::BondPrice,
+            Self::YieldToMaturity,
+            Self::Duration,
+            Self::ModifiedDuration,
+            Self::Convexity,
+            Self::Wacc,
+            Self::FreeCashFlowToFirm,
+            Self::FreeCashFlowToEquity,
+            Self::EconomicValueAdded,
+            Self::SustainableGrowthRate,
+            Self::InternalGrowthRate,
+        ]
+    }
+
+    /// The parameter names this formula's evaluator resolves, in the order
+    /// [`crate::evaluator`]'s `eval_*` function for this node calls `resolve`
+    /// (or `resolve_periods`/`resolve_series`) for them. Kept hand-in-hand
+    /// with `crates/dag/src/evaluator.rs` — a mismatch here would misreport
+    /// a formula's dependency wiring without ever failing evaluation itself,
+    /// so `crate::evaluator`'s tests cross-check every entry against a real
+    /// [`crate::evaluator::evaluate_dag`] run.
+    ///
+    /// [`FormulaNode::DiscountedCashFlow`], [`FormulaNode::Duration`], and
+    /// [`FormulaNode::Convexity`] each list `"cash_flows"` here even though
+    /// it names a cash-flow *series*, not a scalar — those three are the only
+    /// nodes whose evaluator calls `resolve_series` rather than `resolve`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_dag::graph::FormulaNode;
+    ///
+    /// assert_eq!(FormulaNode::FutureValue.parameters(), ["pv", "rate", "periods"]);
+    /// assert_eq!(FormulaNode::PerpetuityPresentValue.parameters(), ["pmt", "rate"]);
+    /// ```
+    #[must_use]
+    pub fn parameters(self) -> &'static [&'static str] {
+        match self {
+            Self::FutureValue => &["pv", "rate", "periods"],
+            Self::PresentValue => &["fv", "rate", "periods"],
+            Self::AnnuityFutureValue | Self::AnnuityPresentValue => &["pmt", "rate", "periods"],
+            Self::PerpetuityPresentValue => &["pmt", "rate"],
+            Self::GrowingPerpetuity => &["d1", "rate", "growth"],
+            Self::EffectiveAnnualRate => &["nominal_rate", "compounding_periods"],
+            Self::ContinuousCompounding => &["pv", "rate", "time"],
+            Self::ReturnOnEquity => &["net_income", "avg_shareholders_equity"],
+            Self::ReturnOnAssets => &["net_income", "avg_total_assets"],
+            Self::ReturnOnInvestment => &["current_value", "cost"],
+            Self::ProfitMargin => &["net_income", "revenue"],
+            Self::AssetTurnover => &["net_sales", "avg_total_assets"],
+            Self::EquityMultiplier => &["total_assets", "total_equity"],
+            Self::DupontRoe => &["net_margin", "asset_turnover", "equity_multiplier"],
+            Self::CurrentRatio => &["current_assets", "current_liabilities"],
+            Self::QuickRatio => &["current_assets", "inventory", "current_liabilities"],
+            Self::DebtToEquity => &["total_liabilities", "total_equity"],
+            Self::InterestCoverage => &["ebit", "interest_expense"],
+            Self::InventoryTurnover => &["cogs", "avg_inventory"],
+            Self::CashConversionCycle => &[
+                "days_inventory_outstanding",
+                "days_sales_outstanding",
+                "days_payable_outstanding",
+            ],
+            Self::NetInterestMargin => &["net_interest_income", "avg_earning_assets"],
+            Self::LoanToDepositRatio => &["total_loans", "total_deposits"],
+            Self::CapitalAdequacyRatio => &["qualifying_capital", "risk_weighted_assets"],
+            Self::ProvisionCoverage => &["loan_loss_provisions", "non_performing_loans"],
+            Self::Beta => &["covariance", "variance_market"],
+            Self::SharpeRatio => &["portfolio_return", "risk_free_rate", "std_dev"],
+            Self::TreynorRatio => &["portfolio_return", "risk_free_rate", "portfolio_beta"],
+            Self::JensensAlpha => &[
+                "portfolio_return",
+                "risk_free_rate",
+                "portfolio_beta",
+                "market_return",
+            ],
+            Self::ValueAtRisk => &["portfolio_value", "z_score", "std_dev"],
+            Self::ExpectedShortfall => &["portfolio_value", "z_score", "std_dev", "confidence"],
+            Self::DividendDiscountModel => &["next_dividend", "required_return", "growth_rate"],
+            Self::DiscountedCashFlow | Self::Duration | Self::Convexity => &["cash_flows", "rate"],
+            Self::BondPrice => &["face_value", "coupon_rate", "market_rate", "periods"],
+            Self::YieldToMaturity => &["price", "face_value", "coupon_rate", "periods"],
+            Self::ModifiedDuration => &["macaulay_duration", "ytm", "periods_per_year"],
+            Self::Wacc => &[
+                "equity_value",
+                "debt_value",
+                "cost_of_equity",
+                "cost_of_debt",
+                "tax_rate",
+            ],
+            Self::FreeCashFlowToFirm => &[
+                "ebit",
+                "tax_rate",
+                "depreciation_amortization",
+                "capex",
+                "change_in_working_capital",
+            ],
+            Self::FreeCashFlowToEquity => &[
+                "net_income",
+                "depreciation_amortization",
+                "capex",
+                "change_in_working_capital",
+                "net_borrowing",
+            ],
+            Self::EconomicValueAdded => &["nopat", "invested_capital", "wacc"],
+            Self::SustainableGrowthRate => &["roe", "retention_ratio"],
+            Self::InternalGrowthRate => &["roa", "retention_ratio"],
+        }
+    }
+
+    /// The other [`FormulaNode`]s this formula could directly draw an input
+    /// from: for each of [`Self::parameters`], whether that name matches
+    /// another node's [`Self::name`] (the exact-name wiring convention
+    /// [`crate::evaluator::resolve`] uses to prefer a prior computed result
+    /// over a raw scalar input). A parameter with no such match is a raw
+    /// input — this formula's own [`Self::name`] is always excluded, so a
+    /// coincidentally self-named parameter is never reported as depending on
+    /// itself.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_dag::graph::FormulaNode;
+    ///
+    /// // "asset_turnover" and "equity_multiplier" both match another
+    /// // formula's name, so DuPont ROE has two real upstream dependencies.
+    /// let upstream = FormulaNode::DupontRoe.upstream_dependencies();
+    /// assert_eq!(upstream.len(), 2);
+    /// assert!(upstream.contains(&FormulaNode::AssetTurnover));
+    /// assert!(upstream.contains(&FormulaNode::EquityMultiplier));
+    ///
+    /// // Cash conversion cycle's parameters are raw day-counts with no
+    /// // producing formula: no upstream dependencies.
+    /// assert!(FormulaNode::CashConversionCycle.upstream_dependencies().is_empty());
+    /// ```
+    #[must_use]
+    pub fn upstream_dependencies(self) -> Vec<Self> {
+        self.parameters()
+            .iter()
+            .filter_map(|parameter| Self::from_name(parameter))
+            .filter(|&upstream| upstream != self)
+            .collect()
+    }
+}
+
+/// Builds the transitive dependency graph rooted at `target`: `target` plus
+/// every [`FormulaNode`] reachable by repeatedly following
+/// [`FormulaNode::upstream_dependencies`], as a [`CausalityEngine`] with edges
+/// "upstream -> downstream" — ready for [`CausalityEngine::execution_order`].
+///
+/// # Examples
+///
+/// ```
+/// use casiros_dag::graph::{FormulaNode, transitive_dependencies};
+///
+/// let engine = transitive_dependencies(FormulaNode::DupontRoe);
+/// let order = engine.execution_order().unwrap();
+/// assert_eq!(order.len(), 3);
+/// // Both dependencies evaluate before the formula that consumes them.
+/// let position = |node: FormulaNode| order.iter().position(|&n| n == node).unwrap();
+/// assert!(position(FormulaNode::AssetTurnover) < position(FormulaNode::DupontRoe));
+/// assert!(position(FormulaNode::EquityMultiplier) < position(FormulaNode::DupontRoe));
+/// ```
+#[must_use]
+pub fn transitive_dependencies(target: FormulaNode) -> CausalityEngine<FormulaNode> {
+    let mut engine = CausalityEngine::new();
+    engine.add_node(target);
+    let mut visited = HashSet::new();
+    visited.insert(target);
+    let mut frontier = vec![target];
+    while let Some(node) = frontier.pop() {
+        for upstream in node.upstream_dependencies() {
+            engine.add_dependency(upstream, node);
+            if visited.insert(upstream) {
+                frontier.push(upstream);
+            }
+        }
+    }
+    engine
 }
 
 /// A directed acyclic graph over any `Copy + Eq + Hash` node type, wrapping
