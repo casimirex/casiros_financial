@@ -1,18 +1,21 @@
 IMAGE := casiros-api
 COMPOSE := docker compose -f docker/docker-compose.yml
 
-.PHONY: help run build docker-build docker-run docker-stop up up-d down logs
+.PHONY: help run build docker-build docker-run docker-stop up up-d down logs frontend frontend-install frontend-build
 
 help:
-	@echo "make run           - run the API server locally (cargo run)"
-	@echo "make build         - build the workspace (cargo build)"
-	@echo "make docker-build  - build the casiros-api Docker image"
-	@echo "make docker-run    - run the Docker image standalone on :8080"
-	@echo "make docker-stop   - stop/remove the standalone container"
-	@echo "make up            - start the full stack (api + db + redis) via docker compose"
-	@echo "make up-d          - same as 'up', but detached (runs in the background)"
-	@echo "make down          - stop the docker compose stack"
-	@echo "make logs          - follow logs from the docker compose stack"
+	@echo "make run               - run the API server locally (cargo run)"
+	@echo "make build             - build the workspace (cargo build)"
+	@echo "make docker-build      - build the casiros-api Docker image"
+	@echo "make docker-run        - run the Docker image standalone on :8080"
+	@echo "make docker-stop       - stop/remove the standalone container"
+	@echo "make up                - start the full stack (api + db + redis) via docker compose"
+	@echo "make up-d              - same as 'up', but detached (runs in the background)"
+	@echo "make down              - stop the docker compose stack"
+	@echo "make logs              - follow logs from the docker compose stack"
+	@echo "make frontend-install  - install frontend dependencies (npm install)"
+	@echo "make frontend          - run the frontend dev server (needs 'make run' in another terminal)"
+	@echo "make frontend-build    - type-check and build the frontend for production"
 
 # --- Backend (local, no Docker) ---------------------------------------------
 
@@ -46,3 +49,14 @@ down:
 
 logs:
 	$(COMPOSE) logs -f
+
+# --- Frontend -----------------------------------------------------------------
+
+frontend-install:
+	cd frontend && npm install
+
+frontend:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build

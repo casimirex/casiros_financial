@@ -20,12 +20,15 @@ A NASA/JPL-grade Financial ERP Operating System, in Rust. Every formula is pure.
 | [`casiros-macros`](crates/macros) | The `generate_narrative!` proc macro — compile-time-checked syntax for building a narrative memo from named metrics. |
 | [`casiros-api`](crates/api) | The Actix-Web server: REST endpoints, WebSocket streaming, OpenAPI/Swagger docs, rate limiting, request tracing. |
 
-Plus two standalone (non-workspace) crates for tooling:
+Plus two standalone (non-workspace) crates for tooling, and the frontend:
 
 | Directory | Purpose |
 |---|---|
 | [`benches/`](benches) | Criterion benchmarks for the hot paths (core formulas, the DAG evaluator, the Monte Carlo engine, ledger posting). |
 | [`fuzz/`](fuzz) | `cargo-fuzz` targets proving core formulas, the DAG evaluator, and journal-line validation reject adversarial input via `Result`, never a panic. |
+| [`frontend/`](frontend) | Mission control — React + TypeScript UI, including a 3D Monte Carlo scenario visualizer. See its own [README](frontend/README.md). |
+
+See [`ROADMAP.md`](ROADMAP.md) for what's shipped versus planned.
 
 ## Quick start
 
@@ -44,7 +47,13 @@ make docker-run
 make up
 ```
 
-Run `make help` for the full list of targets.
+Run `make help` for the full list of targets. To run the frontend against it:
+
+```sh
+make frontend-install   # once
+make frontend
+# → http://localhost:5173
+```
 
 ## API
 
