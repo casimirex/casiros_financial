@@ -1,0 +1,43 @@
+# Standalone workspace root: see the comment below for why this isn't a
+# member of the main workspace.
+[workspace]
+
+[package]
+name = "casiros-benches"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Deliberately NOT a member of the root workspace: Criterion's HTML report
+# tooling pulls in dependencies (e.g. plotters) that don't need to satisfy
+# the main workspace's `-D clippy::pedantic` / `-D warnings` rustflags, and
+# keeping it separate means `cargo build/test/clippy --workspace` stays fast
+# and unaffected by benchmark code. Run with `cargo bench --manifest-path
+# benches/Cargo.toml`.
+[dependencies]
+casiros-core = { path = "../crates/core" }
+casiros-dag = { path = "../crates/dag" }
+casiros-erp = { path = "../crates/erp" }
+casiros-simulator = { path = "../crates/simulator" }
+chrono = "0.4"
+rust_decimal = { version = "1.36", features = ["maths"] }
+rust_decimal_macros = "1.36"
+
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "core_formulas"
+harness = false
+
+[[bench]]
+name = "dag_evaluation"
+harness = false
+
+[[bench]]
+name = "monte_carlo"
+harness = false
+
+[[bench]]
+name = "ledger_posting"
+harness = false

@@ -1,0 +1,47 @@
+# Standalone workspace root, per cargo-fuzz convention: fuzz targets require
+# a nightly toolchain and libFuzzer/sanitizer instrumentation incompatible
+# with the main workspace's stable pin and strict lint rustflags. Run with
+# `cargo +nightly fuzz run <target>` from within this directory.
+[workspace]
+
+[package]
+name = "casiros-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[lib]
+name = "casiros_fuzz_shared"
+path = "src/lib.rs"
+
+[dependencies]
+arbitrary = { version = "1", features = ["derive"] }
+casiros-core = { path = "../crates/core" }
+casiros-dag = { path = "../crates/dag" }
+casiros-erp = { path = "../crates/erp" }
+libfuzzer-sys = "0.4"
+rust_decimal = { version = "1.36", features = ["maths"] }
+
+[[bin]]
+name = "core_formulas"
+path = "fuzz_targets/core_formulas.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dag_evaluation"
+path = "fuzz_targets/dag_evaluation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "erp_journal"
+path = "fuzz_targets/erp_journal.rs"
+test = false
+doc = false
+bench = false

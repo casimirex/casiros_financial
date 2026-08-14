@@ -1,0 +1,9 @@
+# Overrides layered on top of default.toml for production deployment.
+
+[server]
+bind_addr = "0.0.0.0:8080"
+workers = 8
+
+[logging]
+level = "info"
+format = "json"

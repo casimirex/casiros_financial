@@ -3,6 +3,8 @@ name = "casiros-erp"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
 
 # casiros-simulator is deliberately NOT a dependency yet: nothing built in this
 # pass (ledger + business rules) needs Monte Carlo scenarios. It becomes a real

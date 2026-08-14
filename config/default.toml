@@ -1,0 +1,24 @@
+# CASIROS default configuration.
+#
+# The running server currently reads only `bind_addr`, via the
+# `CASIROS_SERVER__BIND_ADDR` environment variable override (see
+# `crates/api/src/main.rs`) — full config-file loading (this file's other
+# settings) is documented here as the operational template for when it's
+# wired in, matching the `CASIROS_<SECTION>__<KEY>` override convention this
+# file's structure already follows.
+
+[server]
+bind_addr = "127.0.0.1:8080"
+workers = 4
+request_timeout_secs = 30
+max_body_size_bytes = 1_048_576
+
+[simulation]
+default_iterations = 10_000
+max_iterations = 1_000_000
+convergence_threshold = 0.001
+convergence_batch_size = 1_000
+
+[logging]
+level = "info"
+format = "json"

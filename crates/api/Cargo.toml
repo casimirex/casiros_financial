@@ -3,6 +3,8 @@ name = "casiros-api"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
 
 # actix-ws (not the spec-named actix-web-actors) provides the WebSocket
 # streaming endpoint: actix-web-actors is published as "4.3.1+deprecated" on

@@ -1,0 +1,13 @@
+# cargo-audit configuration.
+#
+# RUSTSEC-2026-0235 (rkyv < 0.8.17): rkyv is an *optional* dependency of
+# rust_decimal, gated behind rust_decimal's own "rkyv" feature, which this
+# workspace never enables (only "maths" and "serde-with-str" are turned on).
+# Cargo.lock still lists it — Cargo pins versions for every optional
+# dependency a resolved package *could* need, not just the ones actually
+# activated — but `cargo tree -e normal,build,dev -i rkyv` confirms it is
+# not part of the real, compiled dependency graph. Re-verify this reasoning
+# (rerun that `cargo tree` check) before renewing the ignore on any future
+# advisory added here; don't ignore blindly.
+[advisories]
+ignore = ["RUSTSEC-2026-0235"]
