@@ -6,7 +6,7 @@ use actix_cors::Cors;
 use actix_web::dev::Service;
 use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::{App, HttpServer, web};
-use casiros_api::middleware::rate_limit::RateLimiter;
+use casiros_api::middleware::redis_rate_limit::RedisRateLimiter;
 use casiros_api::middleware::tracing::{REQUEST_ID_HEADER, new_request_id};
 use casiros_api::persistence::db;
 use casiros_api::routes;
@@ -27,6 +27,9 @@ const DEFAULT_BIND_ADDR: &str = "127.0.0.1:8080";
 /// — matches `docker-compose.yml`'s `db` service credentials, for local
 /// (non-container) `cargo run` against `make up-d`'s exposed port.
 const DEFAULT_DATABASE_URL: &str = "postgres://casiros:casiros@localhost/casiros";
+/// The default Redis connection string, overridable via `REDIS_URL` — for
+/// local (non-container) `cargo run` against `make up-d`'s exposed port.
+const DEFAULT_REDIS_URL: &str = "redis://localhost/";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -41,13 +44,25 @@ async fn main() -> std::io::Result<()> {
         .unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
     let database_url =
         std::env::var("DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| DEFAULT_REDIS_URL.to_string());
     tracing::info!(bind_addr = %bind_addr, "starting CASIROS API server");
 
     let pool = db::connect_and_migrate(&database_url)
         .await
         .unwrap_or_else(|err| panic!("failed to connect to database and run migrations: {err}"));
 
-    let rate_limiter = web::Data::new(RateLimiter::new(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW));
+    let redis_client =
+        redis::Client::open(redis_url).unwrap_or_else(|err| panic!("invalid REDIS_URL: {err}"));
+    let redis_connection = redis_client
+        .get_connection_manager()
+        .await
+        .unwrap_or_else(|err| panic!("failed to connect to redis: {err}"));
+
+    let rate_limiter = web::Data::new(RedisRateLimiter::new(
+        redis_connection,
+        RATE_LIMIT_MAX_REQUESTS,
+        RATE_LIMIT_WINDOW,
+    ));
     // Created once, outside the HttpServer factory closure, and shared (via
     // web::Data's Arc) across every worker thread — see routes::configure's
     // doc comment for why this can't be created inside `configure` itself.
@@ -76,15 +91,15 @@ async fn main() -> std::io::Result<()> {
                 .instrument(span)
             })
             .wrap_fn(|req, srv| {
-                let limiter = req.app_data::<web::Data<RateLimiter>>().cloned();
+                let limiter = req.app_data::<web::Data<RedisRateLimiter>>().cloned();
                 let ip = req.peer_addr().map(|addr| addr.ip());
-                let allowed = match (limiter, ip) {
-                    (Some(limiter), Some(ip)) => limiter.check(ip),
-                    // No peer address (common in tests) or no limiter configured: allow.
-                    _ => true,
-                };
                 let fut = srv.call(req);
                 async move {
+                    let allowed = match (limiter, ip) {
+                        (Some(limiter), Some(ip)) => limiter.check(ip).await,
+                        // No peer address (common in tests) or no limiter configured: allow.
+                        _ => true,
+                    };
                     if !allowed {
                         return Err(actix_web::error::ErrorTooManyRequests(
                             "rate limit exceeded",
