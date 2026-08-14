@@ -1,8 +1,7 @@
-# db and redis are scaffolded per the build spec's target architecture, but
-# the running app doesn't connect to either yet — casiros-api is currently
-# fully in-memory (see crates/api/src/state.rs and casiros-erp's Cargo.toml
-# comment on why no persistence crate is wired in). Wiring real persistence
-# is a later increment, not part of this pass.
+# Phase 9: db and redis are real dependencies now — casiros-api persists
+# ledger/AP/AR/treasury state to Postgres and uses Redis for rate limiting
+# and simulation-result caching (see crates/api/src/persistence/ and
+# crates/api/src/middleware/redis_rate_limit.rs).
 services:
   api:
     build:
@@ -12,8 +11,12 @@ services:
       - "8080:8080"
     environment:
       CASIROS_SERVER__BIND_ADDR: "0.0.0.0:8080"
+      DATABASE_URL: "postgres://casiros:casiros@db/casiros"
+      REDIS_URL: "redis://redis/"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   db:

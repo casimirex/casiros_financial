@@ -31,6 +31,16 @@ pub enum AppError {
     /// rather than a client error.
     #[error("internal error: {0}")]
     Internal(String),
+
+    /// A Postgres query or connection failed.
+    ///
+    /// Redis failures deliberately have no equivalent variant here: rate
+    /// limiting and simulation caching are both fail-open by design (see
+    /// `middleware/redis_rate_limit.rs` and `routes/simulate.rs`) — a Redis
+    /// outage degrades to "unlimited"/"uncached", logged via `tracing::warn!`,
+    /// never surfaced to the client as an error.
+    #[error("database error: {0}")]
+    Database(#[from] sqlx::Error),
 }
 
 /// The JSON shape every error response takes.
@@ -69,6 +79,10 @@ impl ResponseError for AppError {
             Self::Calculation(_) => StatusCode::UNPROCESSABLE_ENTITY,
             Self::Erp(err) => erp_status_code(err),
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            // The database being unreachable (vs. a query simply failing) is
+            // the common case here; 503 tells the caller to retry rather than
+            // implying their request itself was malformed.
+            Self::Database(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 
@@ -120,5 +134,11 @@ mod tests {
     fn erp_duplicate_account_maps_to_409() {
         let err = AppError::Erp(ErpError::DuplicateAccount(AccountCode(1)));
         assert_eq!(err.status_code(), StatusCode::CONFLICT);
+    }
+
+    #[test]
+    fn database_error_maps_to_503() {
+        let err = AppError::Database(sqlx::Error::PoolClosed);
+        assert_eq!(err.status_code(), StatusCode::SERVICE_UNAVAILABLE);
     }
 }
