@@ -10,5 +10,6 @@
 //! the domain type.
 
 pub mod ap;
+pub mod ar;
 pub mod db;
 pub mod ledger;

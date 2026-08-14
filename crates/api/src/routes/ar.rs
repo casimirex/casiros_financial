@@ -1,13 +1,14 @@
 //! `/api/v1/ar/*` — customers, AR invoices, and cash receipt allocation.
 
 use crate::error::AppError;
-use crate::state::{AppState, lock};
+use crate::persistence::ar;
+use crate::state::AppState;
 use actix_web::{HttpResponse, web};
 use casiros_core::types::Dollar;
 use casiros_erp::ap::supplier::PaymentTerms;
 use casiros_erp::ar::customer::{Customer, CustomerId};
 use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
-use casiros_erp::ar::receipt::{Receipt, ReceiptAllocation, allocate_receipt};
+use casiros_erp::ar::receipt::{Receipt, ReceiptAllocation};
 use casiros_erp::ledger::account::AccountCode;
 use chrono::NaiveDate;
 use serde::Deserialize;
@@ -53,7 +54,7 @@ pub async fn create_customer(
         payment_terms: request.payment_terms,
         receivable_account: request.receivable_account,
     };
-    lock(&state.customers).insert(customer.id, customer.clone());
+    ar::register_customer(&state.pool, &customer).await?;
     info!(customer_id = ?customer.id, "customer registered");
     Ok(HttpResponse::Created().json(customer))
 }
@@ -71,7 +72,7 @@ pub async fn create_customer(
 )]
 #[instrument(name = "GET /ar/customers", skip(state))]
 pub async fn list_customers(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let customers: Vec<Customer> = lock(&state.customers).values().cloned().collect();
+    let customers = ar::list_customers(&state.pool).await?;
     info!(count = customers.len(), "listed customers");
     Ok(HttpResponse::Ok().json(customers))
 }
@@ -126,7 +127,7 @@ pub async fn create_invoice(
         request.terms,
         request.recognition_method,
     )?;
-    lock(&state.ar_invoices).insert(invoice.id, invoice.clone());
+    ar::create_invoice(&state.pool, &invoice).await?;
     info!(invoice_id = ?invoice.id, "AR invoice recorded");
     Ok(HttpResponse::Created().json(invoice))
 }
@@ -144,7 +145,7 @@ pub async fn create_invoice(
 )]
 #[instrument(name = "GET /ar/invoices", skip(state))]
 pub async fn list_invoices(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let invoices: Vec<ArInvoice> = lock(&state.ar_invoices).values().cloned().collect();
+    let invoices = ar::list_invoices(&state.pool).await?;
     info!(count = invoices.len(), "listed AR invoices");
     Ok(HttpResponse::Ok().json(invoices))
 }
@@ -183,13 +184,7 @@ pub async fn allocate(
     let request = request.into_inner();
     let receipt = Receipt::new(request.customer, request.amount, request.date)?;
 
-    let mut invoices_guard = lock(&state.ar_invoices);
-    let mut invoices: Vec<ArInvoice> = invoices_guard.values().cloned().collect();
-    let allocations = allocate_receipt(&receipt, &mut invoices)?;
-    for invoice in invoices {
-        invoices_guard.insert(invoice.id, invoice);
-    }
-    drop(invoices_guard);
+    let allocations = ar::allocate_receipt(&state.pool, &receipt).await?;
 
     info!(allocation_count = allocations.len(), "receipt allocated");
     Ok(HttpResponse::Ok().json(allocations))
