@@ -33,6 +33,26 @@ impl ForwardContract {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::fx::CurrencyCode;
+    /// use casiros_erp::treasury::hedge::ForwardContract;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let contract = ForwardContract {
+    ///     notional: dec!(1000),
+    ///     currency: CurrencyCode::new("EUR").unwrap(),
+    ///     forward_rate: dec!(1.10),
+    ///     settlement_date: NaiveDate::from_ymd_opt(2026, 9, 1).unwrap(),
+    /// };
+    /// // Spot fell below the locked-in forward rate: a gain on the contract.
+    /// let gain = contract.gain_loss(dec!(1.05)).unwrap();
+    /// assert_eq!(gain, dec!(50));
+    /// assert!(gain > dec!(0));
+    /// ```
     pub fn gain_loss(&self, spot_rate_at_settlement: Decimal) -> Result<Dollar, CalculationError> {
         let formula = "ForwardContract::gain_loss";
         let rate_difference = self
@@ -87,6 +107,16 @@ pub fn hedge_effectiveness(
 /// Whether `effectiveness` falls within the `80%..=125%` dollar-offset range
 /// conventionally required to qualify a hedge for hedge accounting treatment
 /// (per ASC 815 / IFRS 9 practice).
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::treasury::hedge::is_highly_effective;
+/// use rust_decimal_macros::dec;
+///
+/// assert!(is_highly_effective(dec!(0.95)));
+/// assert!(!is_highly_effective(dec!(0.50)));
+/// ```
 #[must_use]
 pub fn is_highly_effective(effectiveness: Ratio) -> bool {
     effectiveness >= dec!(0.80) && effectiveness <= dec!(1.25)

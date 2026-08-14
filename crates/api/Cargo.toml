@@ -38,4 +38,6 @@ utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
 uuid = { version = "1.11", features = ["v4"] }
 
 [dev-dependencies]
+actix-test = "0.1.5"
+awc = "3.8.2"
 rust_decimal_macros.workspace = true

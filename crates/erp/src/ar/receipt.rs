@@ -35,6 +35,24 @@ impl Receipt {
     /// # Errors
     ///
     /// Returns [`CalculationError::NegativeValueInvalid`] if `amount` is not strictly positive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::receipt::Receipt;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let receipt = Receipt::new(
+    ///     CustomerId::new(),
+    ///     dec!(500),
+    ///     NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(receipt.amount, dec!(500));
+    /// assert!(Receipt::new(CustomerId::new(), dec!(0), NaiveDate::from_ymd_opt(2026, 8, 13).unwrap()).is_err());
+    /// ```
     pub fn new(customer: CustomerId, amount: Dollar, date: NaiveDate) -> Result<Self, ErpError> {
         if amount <= Decimal::ZERO {
             return Err(CalculationError::NegativeValueInvalid {
@@ -74,6 +92,37 @@ pub struct ReceiptAllocation {
 /// # Errors
 ///
 /// Returns [`ErpError::Calculation`] if a date or balance computation overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ap::supplier::PaymentTerms;
+/// use casiros_erp::ar::customer::CustomerId;
+/// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+/// use casiros_erp::ar::receipt::{Receipt, allocate_receipt};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let customer = CustomerId::new();
+/// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+/// let mut invoices = vec![
+///     ArInvoice::new(
+///         customer,
+///         "AR-001",
+///         invoice_date,
+///         dec!(300),
+///         PaymentTerms::net(30),
+///         RecognitionMethod::PointInTime { recognition_date: invoice_date },
+///     )
+///     .unwrap(),
+/// ];
+///
+/// let receipt = Receipt::new(customer, dec!(300), NaiveDate::from_ymd_opt(2026, 8, 13).unwrap()).unwrap();
+/// let allocations = allocate_receipt(&receipt, &mut invoices).unwrap();
+/// assert_eq!(allocations.len(), 1);
+/// assert_eq!(allocations[0].amount_applied, dec!(300));
+/// assert_eq!(invoices[0].balance_due().unwrap(), dec!(0));
+/// ```
 pub fn allocate_receipt(
     receipt: &Receipt,
     invoices: &mut [ArInvoice],

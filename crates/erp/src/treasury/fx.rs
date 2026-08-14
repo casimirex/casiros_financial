@@ -20,6 +20,16 @@ impl CurrencyCode {
     ///
     /// Returns [`ErpError::InvalidCurrencyCode`] if `code` is not exactly
     /// three ASCII uppercase letters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::fx::CurrencyCode;
+    ///
+    /// let usd = CurrencyCode::new("USD").unwrap();
+    /// assert_eq!(usd.to_string(), "USD");
+    /// assert!(CurrencyCode::new("us").is_err());
+    /// ```
     pub fn new(code: &str) -> Result<Self, ErpError> {
         let bytes = code.as_bytes();
         if bytes.len() != 3 || !bytes.iter().all(u8::is_ascii_uppercase) {
@@ -66,6 +76,28 @@ impl FxExposure {
     /// Returns [`ErpError::CurrencyMismatch`] if `rate.from` does not match
     /// [`Self::currency`]. Returns [`ErpError::Calculation`] if the
     /// multiplication overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::fx::{CurrencyCode, ExchangeRate, FxExposure};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let eur = CurrencyCode::new("EUR").unwrap();
+    /// let usd = CurrencyCode::new("USD").unwrap();
+    /// let exposure = FxExposure { currency: eur, amount: dec!(100) };
+    /// let rate = ExchangeRate {
+    ///     from: eur,
+    ///     to: usd,
+    ///     rate: dec!(1.10),
+    ///     as_of: NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    /// };
+    /// assert_eq!(exposure.convert(&rate).unwrap(), dec!(110.00));
+    ///
+    /// let wrong_rate = ExchangeRate { from: usd, ..rate };
+    /// assert!(exposure.convert(&wrong_rate).is_err());
+    /// ```
     pub fn convert(&self, rate: &ExchangeRate) -> Result<Dollar, ErpError> {
         if rate.from != self.currency {
             return Err(ErpError::CurrencyMismatch {
@@ -90,6 +122,29 @@ impl FxExposure {
 /// Returns [`ErpError::CurrencyMismatch`] if either rate's `from` does not
 /// match `exposure.currency`. Returns [`ErpError::Calculation`] if a
 /// conversion or the subtraction overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::treasury::fx::{CurrencyCode, ExchangeRate, FxExposure, revaluation_gain_loss};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let eur = CurrencyCode::new("EUR").unwrap();
+/// let usd = CurrencyCode::new("USD").unwrap();
+/// let exposure = FxExposure { currency: eur, amount: dec!(100) };
+/// let old_rate = ExchangeRate {
+///     from: eur,
+///     to: usd,
+///     rate: dec!(1.10),
+///     as_of: NaiveDate::from_ymd_opt(2026, 7, 1).unwrap(),
+/// };
+/// let new_rate = ExchangeRate { rate: dec!(1.15), ..old_rate };
+///
+/// let gain = revaluation_gain_loss(&exposure, &old_rate, &new_rate).unwrap();
+/// assert_eq!(gain, dec!(5.00));
+/// assert!(gain > dec!(0));
+/// ```
 pub fn revaluation_gain_loss(
     exposure: &FxExposure,
     old_rate: &ExchangeRate,

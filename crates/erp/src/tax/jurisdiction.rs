@@ -43,6 +43,32 @@ impl TaxJurisdiction {
     /// Returns [`ErpError::InvalidTaxBrackets`] if `brackets` is empty, if any
     /// bracket but the last has `upper_bound: None`, or if the last bracket
     /// has `upper_bound: Some(_)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::tax::jurisdiction::{JurisdictionCode, TaxBracket, TaxJurisdiction};
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let jurisdiction = TaxJurisdiction::new(
+    ///     JurisdictionCode("US-FEDERAL".to_string()),
+    ///     "US Federal",
+    ///     vec![
+    ///         TaxBracket { upper_bound: Some(dec!(50_000)), rate: dec!(0.10) },
+    ///         TaxBracket { upper_bound: None, rate: dec!(0.24) },
+    ///     ],
+    /// )
+    /// .unwrap();
+    /// assert_eq!(jurisdiction.brackets().len(), 2);
+    ///
+    /// // A schedule with no unbounded final bracket is rejected.
+    /// let invalid = TaxJurisdiction::new(
+    ///     JurisdictionCode("BAD".to_string()),
+    ///     "Bad",
+    ///     vec![TaxBracket { upper_bound: Some(dec!(50_000)), rate: dec!(0.10) }],
+    /// );
+    /// assert!(invalid.is_err());
+    /// ```
     pub fn new(
         code: JurisdictionCode,
         name: impl Into<String>,
@@ -71,6 +97,22 @@ impl TaxJurisdiction {
     }
 
     /// This jurisdiction's brackets, in ascending order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::tax::jurisdiction::{JurisdictionCode, TaxBracket, TaxJurisdiction};
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let jurisdiction = TaxJurisdiction::new(
+    ///     JurisdictionCode("US-FEDERAL".to_string()),
+    ///     "US Federal",
+    ///     vec![TaxBracket { upper_bound: None, rate: dec!(0.21) }],
+    /// )
+    /// .unwrap();
+    /// assert_eq!(jurisdiction.brackets().len(), 1);
+    /// assert_eq!(jurisdiction.brackets()[0].rate, dec!(0.21));
+    /// ```
     #[must_use]
     pub fn brackets(&self) -> &[TaxBracket] {
         &self.brackets

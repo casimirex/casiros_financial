@@ -33,28 +33,95 @@ pub struct BudgetModel {
 
 impl BudgetModel {
     /// Creates an empty budget model.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::BudgetModel;
+    ///
+    /// let model = BudgetModel::new();
+    /// assert!(model.line_items().is_empty());
+    /// assert_eq!(model.driver("revenue"), None);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets (or overwrites) a driver's value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::BudgetModel;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// model.set_driver("units_sold", dec!(1000));
+    /// assert_eq!(model.driver("units_sold"), Some(dec!(1000)));
+    /// model.set_driver("units_sold", dec!(1200));
+    /// assert_eq!(model.driver("units_sold"), Some(dec!(1200)));
+    /// ```
     pub fn set_driver(&mut self, name: impl Into<String>, value: Decimal) {
         self.drivers.insert(name.into(), value);
     }
 
     /// Looks up a driver's current value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::BudgetModel;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// assert_eq!(model.driver("units_sold"), None);
+    /// model.set_driver("units_sold", dec!(1000));
+    /// assert_eq!(model.driver("units_sold"), Some(dec!(1000)));
+    /// ```
     #[must_use]
     pub fn driver(&self, name: &str) -> Option<Decimal> {
         self.drivers.get(name).copied()
     }
 
     /// Adds a line item to the model.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::{BudgetModel, DriverBasedLineItem};
+    /// use casiros_erp::ledger::account::AccountCode;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// assert_eq!(model.line_items().len(), 0);
+    /// model.add_line_item(DriverBasedLineItem {
+    ///     account: AccountCode(4000),
+    ///     description: "Revenue".to_string(),
+    ///     driver_names: vec!["units_sold".to_string(), "average_price".to_string()],
+    /// });
+    /// assert_eq!(model.line_items().len(), 1);
+    /// ```
     pub fn add_line_item(&mut self, item: DriverBasedLineItem) {
         self.line_items.push(item);
     }
 
     /// Every line item in the model, in insertion order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::{BudgetModel, DriverBasedLineItem};
+    /// use casiros_erp::ledger::account::AccountCode;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// model.add_line_item(DriverBasedLineItem {
+    ///     account: AccountCode(4000),
+    ///     description: "Revenue".to_string(),
+    ///     driver_names: vec!["units_sold".to_string()],
+    /// });
+    /// assert_eq!(model.line_items().len(), 1);
+    /// assert_eq!(model.line_items()[0].description, "Revenue");
+    /// ```
     #[must_use]
     pub fn line_items(&self) -> &[DriverBasedLineItem] {
         &self.line_items
@@ -69,6 +136,30 @@ impl BudgetModel {
     /// `item.driver_names` is empty. Returns [`ErpError::UnknownDriver`] if
     /// any named driver has not been set. Returns [`CalculationError::Overflow`]
     /// if the product overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::{BudgetModel, DriverBasedLineItem};
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// model.set_driver("units_sold", dec!(1000));
+    /// model.set_driver("average_price", dec!(25));
+    /// let item = DriverBasedLineItem {
+    ///     account: AccountCode(4000),
+    ///     description: "Revenue".to_string(),
+    ///     driver_names: vec!["units_sold".to_string(), "average_price".to_string()],
+    /// };
+    /// assert_eq!(model.compute_line_item(&item).unwrap(), dec!(25_000));
+    ///
+    /// let unknown = DriverBasedLineItem {
+    ///     driver_names: vec!["missing_driver".to_string()],
+    ///     ..item
+    /// };
+    /// assert!(model.compute_line_item(&unknown).is_err());
+    /// ```
     pub fn compute_line_item(&self, item: &DriverBasedLineItem) -> Result<Dollar, ErpError> {
         let Some((first, rest)) = item.driver_names.split_first() else {
             return Err(CalculationError::MissingInput {
@@ -103,6 +194,30 @@ impl BudgetModel {
     ///
     /// Returns whatever [`Self::compute_line_item`] returns for the first
     /// failing line item, or [`CalculationError::Overflow`] if the total overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::budget::model::{BudgetModel, DriverBasedLineItem};
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut model = BudgetModel::new();
+    /// model.set_driver("units_sold", dec!(1000));
+    /// model.set_driver("average_price", dec!(25));
+    /// model.add_line_item(DriverBasedLineItem {
+    ///     account: AccountCode(4000),
+    ///     description: "Revenue".to_string(),
+    ///     driver_names: vec!["units_sold".to_string(), "average_price".to_string()],
+    /// });
+    /// model.add_line_item(DriverBasedLineItem {
+    ///     account: AccountCode(4100),
+    ///     description: "Other Income".to_string(),
+    ///     driver_names: vec!["units_sold".to_string()],
+    /// });
+    /// assert_eq!(model.total_budget().unwrap(), dec!(26_000));
+    /// assert!(model.total_budget().unwrap() > dec!(0));
+    /// ```
     pub fn total_budget(&self) -> Result<Dollar, ErpError> {
         let mut total = Decimal::ZERO;
         for item in &self.line_items {

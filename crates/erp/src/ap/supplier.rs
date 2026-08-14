@@ -16,6 +16,17 @@ pub struct SupplierId(pub Uuid);
 
 impl SupplierId {
     /// Generates a new, random supplier id.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::SupplierId;
+    ///
+    /// let a = SupplierId::new();
+    /// let b = SupplierId::new();
+    /// assert_ne!(a, b);
+    /// assert_eq!(a, a);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4())
@@ -44,6 +55,16 @@ pub struct PaymentTerms {
 
 impl PaymentTerms {
     /// Net-30 terms with no early-payment discount.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    ///
+    /// let terms = PaymentTerms::net(30);
+    /// assert_eq!(terms.net_days, 30);
+    /// assert!(terms.discount_percent.is_none());
+    /// ```
     #[must_use]
     pub fn net(days: u32) -> Self {
         Self {
@@ -55,6 +76,17 @@ impl PaymentTerms {
 
     /// Terms with an early-payment discount (e.g. `PaymentTerms::with_discount(30, dec!(0.02), 10)`
     /// for "2/10 net 30").
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let terms = PaymentTerms::with_discount(30, dec!(0.02), 10);
+    /// assert_eq!(terms.discount_percent, Some(dec!(0.02)));
+    /// assert_eq!(terms.discount_days, Some(10));
+    /// ```
     #[must_use]
     pub fn with_discount(net_days: u32, discount_percent: Ratio, discount_days: u32) -> Self {
         Self {
@@ -69,6 +101,19 @@ impl PaymentTerms {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the resulting date is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use chrono::NaiveDate;
+    ///
+    /// let terms = PaymentTerms::net(30);
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let due = terms.due_date(invoice_date).unwrap();
+    /// assert_eq!(due, NaiveDate::from_ymd_opt(2026, 8, 31).unwrap());
+    /// assert!(due > invoice_date);
+    /// ```
     pub fn due_date(self, invoice_date: NaiveDate) -> Result<NaiveDate, CalculationError> {
         invoice_date
             .checked_add_signed(Duration::days(i64::from(self.net_days)))
@@ -82,6 +127,23 @@ impl PaymentTerms {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the resulting date is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    ///
+    /// let with_discount = PaymentTerms::with_discount(30, dec!(0.02), 10);
+    /// let deadline = with_discount.discount_deadline(invoice_date).unwrap();
+    /// assert_eq!(deadline, Some(NaiveDate::from_ymd_opt(2026, 8, 11).unwrap()));
+    ///
+    /// let net_only = PaymentTerms::net(30);
+    /// assert_eq!(net_only.discount_deadline(invoice_date).unwrap(), None);
+    /// ```
     pub fn discount_deadline(
         self,
         invoice_date: NaiveDate,
@@ -104,6 +166,31 @@ impl PaymentTerms {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if a date or amount computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let terms = PaymentTerms::with_discount(30, dec!(0.02), 10);
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    ///
+    /// // Paid within the discount window: 2% off.
+    /// let within_window = NaiveDate::from_ymd_opt(2026, 8, 5).unwrap();
+    /// assert_eq!(
+    ///     terms.amount_due(dec!(1000), invoice_date, within_window).unwrap(),
+    ///     dec!(980)
+    /// );
+    ///
+    /// // Paid after the discount window: full amount.
+    /// let after_window = NaiveDate::from_ymd_opt(2026, 8, 20).unwrap();
+    /// assert_eq!(
+    ///     terms.amount_due(dec!(1000), invoice_date, after_window).unwrap(),
+    ///     dec!(1000)
+    /// );
+    /// ```
     pub fn amount_due(
         self,
         invoice_amount: Dollar,

@@ -14,6 +14,29 @@ use serde::{Deserialize, Serialize};
 ///
 /// Returns [`CalculationError::NegativeValueInvalid`] if `taxable_income` is negative.
 /// Returns [`CalculationError::Overflow`] if any intermediate sum overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::tax::calculation::calculate_tax;
+/// use casiros_erp::tax::jurisdiction::{JurisdictionCode, TaxBracket, TaxJurisdiction};
+/// use rust_decimal_macros::dec;
+///
+/// let jurisdiction = TaxJurisdiction::new(
+///     JurisdictionCode("US-FEDERAL".to_string()),
+///     "US Federal",
+///     vec![
+///         TaxBracket { upper_bound: Some(dec!(50_000)), rate: dec!(0.10) },
+///         TaxBracket { upper_bound: None, rate: dec!(0.20) },
+///     ],
+/// )
+/// .unwrap();
+///
+/// // 50,000 at 10% + 10,000 at 20% = 7,000.
+/// let tax = calculate_tax(&jurisdiction, dec!(60_000)).unwrap();
+/// assert_eq!(tax, dec!(7_000));
+/// assert!(tax < dec!(60_000));
+/// ```
 pub fn calculate_tax(
     jurisdiction: &TaxJurisdiction,
     taxable_income: Dollar,
@@ -56,6 +79,31 @@ pub fn calculate_tax(
 /// # Errors
 ///
 /// Returns whatever [`calculate_tax`] returns for the first failing allocation.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::tax::calculation::calculate_multi_jurisdiction_tax;
+/// use casiros_erp::tax::jurisdiction::{JurisdictionCode, TaxBracket, TaxJurisdiction};
+/// use rust_decimal_macros::dec;
+///
+/// let federal = TaxJurisdiction::new(
+///     JurisdictionCode("US-FEDERAL".to_string()),
+///     "US Federal",
+///     vec![TaxBracket { upper_bound: None, rate: dec!(0.21) }],
+/// )
+/// .unwrap();
+/// let state = TaxJurisdiction::new(
+///     JurisdictionCode("US-CA".to_string()),
+///     "California",
+///     vec![TaxBracket { upper_bound: None, rate: dec!(0.09) }],
+/// )
+/// .unwrap();
+///
+/// let total = calculate_multi_jurisdiction_tax(&[(&federal, dec!(100_000)), (&state, dec!(100_000))]).unwrap();
+/// assert_eq!(total, dec!(30_000));
+/// assert!(total > dec!(0));
+/// ```
 pub fn calculate_multi_jurisdiction_tax(
     allocations: &[(&TaxJurisdiction, Dollar)],
 ) -> Result<Dollar, ErpError> {
@@ -103,6 +151,24 @@ impl TemporaryDifference {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::tax::calculation::{DeferredTaxPosition, TemporaryDifference};
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let liability = TemporaryDifference {
+    ///     description: "Fixed asset depreciation".to_string(),
+    ///     book_basis: dec!(100_000),
+    ///     tax_basis: dec!(80_000),
+    ///     tax_rate: dec!(0.21),
+    /// };
+    /// assert_eq!(liability.deferred_tax_position().unwrap(), DeferredTaxPosition::Liability(dec!(4_200)));
+    ///
+    /// let no_difference = TemporaryDifference { tax_basis: dec!(100_000), ..liability };
+    /// assert_eq!(no_difference.deferred_tax_position().unwrap(), DeferredTaxPosition::None);
+    /// ```
     pub fn deferred_tax_position(&self) -> Result<DeferredTaxPosition, CalculationError> {
         let formula = "TemporaryDifference::deferred_tax_position";
         let diff = self

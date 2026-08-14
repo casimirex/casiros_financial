@@ -37,6 +37,23 @@ pub struct VarianceResult {
 /// # Errors
 ///
 /// Returns [`CalculationError::Overflow`] if the variance or its percentage overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::budget::variance::analyze_variance;
+/// use casiros_erp::ledger::account::{AccountCode, AccountType};
+/// use rust_decimal_macros::dec;
+///
+/// // Revenue came in above budget: favorable.
+/// let result = analyze_variance(AccountCode(4000), AccountType::Revenue, dec!(100_000), dec!(110_000)).unwrap();
+/// assert_eq!(result.variance, dec!(10_000));
+/// assert!(result.favorable);
+///
+/// // Expense came in above budget: unfavorable.
+/// let expense = analyze_variance(AccountCode(5000), AccountType::Expense, dec!(50_000), dec!(60_000)).unwrap();
+/// assert!(!expense.favorable);
+/// ```
 pub fn analyze_variance(
     account: AccountCode,
     account_type: AccountType,
@@ -78,6 +95,22 @@ pub fn analyze_variance(
 /// # Errors
 ///
 /// Returns whatever [`analyze_variance`] returns for the first failing entry.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::budget::variance::variance_report;
+/// use casiros_erp::ledger::account::{AccountCode, AccountType};
+/// use rust_decimal_macros::dec;
+///
+/// let entries = [
+///     (AccountCode(4000), AccountType::Revenue, dec!(100_000), dec!(110_000)),
+///     (AccountCode(5000), AccountType::Expense, dec!(50_000), dec!(45_000)),
+/// ];
+/// let report = variance_report(&entries).unwrap();
+/// assert_eq!(report.len(), 2);
+/// assert!(report.iter().all(|r| r.favorable));
+/// ```
 pub fn variance_report(
     entries: &[(AccountCode, AccountType, Dollar, Dollar)],
 ) -> Result<Vec<VarianceResult>, ErpError> {

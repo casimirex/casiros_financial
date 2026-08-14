@@ -78,3 +78,47 @@ impl ResponseError for AppError {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AppError;
+    use actix_web::ResponseError;
+    use actix_web::http::StatusCode;
+    use casiros_erp::error::ErpError;
+    use casiros_erp::ledger::account::AccountCode;
+
+    #[test]
+    fn bad_request_and_not_found_map_directly() {
+        assert_eq!(
+            AppError::BadRequest("x".to_string()).status_code(),
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            AppError::NotFound("x".to_string()).status_code(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn internal_maps_to_500() {
+        assert_eq!(
+            AppError::Internal("bug".to_string()).status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn erp_unknown_account_and_unknown_driver_map_to_404() {
+        let unknown_account = AppError::Erp(ErpError::UnknownAccount(AccountCode(1)));
+        assert_eq!(unknown_account.status_code(), StatusCode::NOT_FOUND);
+
+        let unknown_driver = AppError::Erp(ErpError::UnknownDriver("x".to_string()));
+        assert_eq!(unknown_driver.status_code(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn erp_duplicate_account_maps_to_409() {
+        let err = AppError::Erp(ErpError::DuplicateAccount(AccountCode(1)));
+        assert_eq!(err.status_code(), StatusCode::CONFLICT);
+    }
+}

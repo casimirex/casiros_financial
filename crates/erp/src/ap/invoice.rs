@@ -54,6 +54,35 @@ impl ApInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::NegativeValueInvalid`] if `amount` is not strictly positive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::invoice::ApInvoice;
+    /// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice = ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(500),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.amount, dec!(500));
+    /// assert_eq!(invoice.amount_paid, dec!(0));
+    ///
+    /// assert!(ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-002",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(0),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .is_err());
+    /// ```
     pub fn new(
         supplier: SupplierId,
         invoice_number: impl Into<String>,
@@ -85,6 +114,27 @@ impl ApInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the resulting date is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::invoice::ApInvoice;
+    /// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let invoice = ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-001",
+    ///     invoice_date,
+    ///     dec!(500),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.due_date().unwrap(), NaiveDate::from_ymd_opt(2026, 8, 31).unwrap());
+    /// assert!(invoice.due_date().unwrap() > invoice_date);
+    /// ```
     pub fn due_date(&self) -> Result<NaiveDate, CalculationError> {
         self.terms.due_date(self.invoice_date)
     }
@@ -94,6 +144,27 @@ impl ApInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the subtraction overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::invoice::ApInvoice;
+    /// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut invoice = ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(500),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.balance_due().unwrap(), dec!(500));
+    /// invoice.apply_payment(dec!(200)).unwrap();
+    /// assert_eq!(invoice.balance_due().unwrap(), dec!(300));
+    /// ```
     pub fn balance_due(&self) -> Result<Dollar, CalculationError> {
         self.amount
             .checked_sub(self.amount_paid)
@@ -107,6 +178,26 @@ impl ApInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if a date or balance computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::invoice::ApInvoice;
+    /// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice = ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(500),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .unwrap();
+    /// assert!(!invoice.is_overdue(NaiveDate::from_ymd_opt(2026, 8, 15).unwrap()).unwrap());
+    /// assert!(invoice.is_overdue(NaiveDate::from_ymd_opt(2026, 9, 15).unwrap()).unwrap());
+    /// ```
     pub fn is_overdue(&self, as_of: NaiveDate) -> Result<bool, CalculationError> {
         Ok(as_of > self.due_date()? && self.balance_due()? > Decimal::ZERO)
     }
@@ -119,6 +210,27 @@ impl ApInvoice {
     /// Returns [`ErpError::PaymentExceedsBalance`] if `amount` exceeds the
     /// current balance due. Returns [`ErpError::Calculation`] with
     /// [`CalculationError::NegativeValueInvalid`] if `amount` is negative.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::invoice::{ApInvoice, ApInvoiceStatus};
+    /// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut invoice = ApInvoice::new(
+    ///     SupplierId::new(),
+    ///     "INV-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(500),
+    ///     PaymentTerms::net(30),
+    /// )
+    /// .unwrap();
+    /// invoice.apply_payment(dec!(500)).unwrap();
+    /// assert_eq!(invoice.status, ApInvoiceStatus::Paid);
+    /// assert!(invoice.apply_payment(dec!(1)).is_err(), "already fully paid");
+    /// ```
     pub fn apply_payment(&mut self, amount: Dollar) -> Result<(), ErpError> {
         if amount < Decimal::ZERO {
             return Err(CalculationError::NegativeValueInvalid {
@@ -170,6 +282,27 @@ pub enum AgingBucket {
 /// # Errors
 ///
 /// Returns [`CalculationError::Overflow`] if `invoice`'s due date computation overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ap::invoice::{AgingBucket, ApInvoice, aging_bucket};
+/// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let invoice = ApInvoice::new(
+///     SupplierId::new(),
+///     "INV-001",
+///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+///     dec!(500),
+///     PaymentTerms::net(30),
+/// )
+/// .unwrap();
+/// let bucket = aging_bucket(&invoice, NaiveDate::from_ymd_opt(2026, 9, 10).unwrap()).unwrap();
+/// assert_eq!(bucket, AgingBucket::Days1To30);
+/// assert_ne!(bucket, AgingBucket::Current);
+/// ```
 pub fn aging_bucket(
     invoice: &ApInvoice,
     as_of: NaiveDate,
@@ -211,6 +344,27 @@ pub struct AgingReport {
 ///
 /// Returns [`CalculationError::Overflow`] if any invoice's aging classification
 /// or a running total overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ap::invoice::{ApInvoice, aging_report};
+/// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let invoice = ApInvoice::new(
+///     SupplierId::new(),
+///     "INV-001",
+///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+///     dec!(500),
+///     PaymentTerms::net(30),
+/// )
+/// .unwrap();
+/// let report = aging_report(&[invoice], NaiveDate::from_ymd_opt(2026, 8, 15).unwrap()).unwrap();
+/// assert_eq!(report.current, dec!(500));
+/// assert_eq!(report.days_1_to_30, dec!(0));
+/// ```
 pub fn aging_report(
     invoices: &[ApInvoice],
     as_of: NaiveDate,

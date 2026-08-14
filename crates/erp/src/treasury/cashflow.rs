@@ -41,17 +41,63 @@ pub struct CashForecast {
 
 impl CashForecast {
     /// Creates an empty forecast.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::CashForecast;
+    ///
+    /// let forecast = CashForecast::new();
+    /// assert!(forecast.items().is_empty());
+    /// assert_eq!(forecast.items().len(), 0);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Adds an item to the forecast.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::{CashFlowCategory, CashFlowItem, CashForecast};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut forecast = CashForecast::new();
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Operating,
+    ///     description: "Payroll".to_string(),
+    ///     amount: dec!(-5000),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 20).unwrap(),
+    /// });
+    /// assert_eq!(forecast.items().len(), 1);
+    /// assert_eq!(forecast.items()[0].amount, dec!(-5000));
+    /// ```
     pub fn add(&mut self, item: CashFlowItem) {
         self.items.push(item);
     }
 
     /// Every item in the forecast, in insertion order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::{CashFlowCategory, CashFlowItem, CashForecast};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut forecast = CashForecast::new();
+    /// assert_eq!(forecast.items().len(), 0);
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Financing,
+    ///     description: "Loan proceeds".to_string(),
+    ///     amount: dec!(10000),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    /// });
+    /// assert_eq!(forecast.items().len(), 1);
+    /// ```
     #[must_use]
     pub fn items(&self) -> &[CashFlowItem] {
         &self.items
@@ -63,6 +109,36 @@ impl CashForecast {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the running total overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::{CashFlowCategory, CashFlowItem, CashForecast};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut forecast = CashForecast::new();
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Operating,
+    ///     description: "Sales".to_string(),
+    ///     amount: dec!(1000),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 10).unwrap(),
+    /// });
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Investing,
+    ///     description: "Equipment".to_string(),
+    ///     amount: dec!(-400),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 15).unwrap(),
+    /// });
+    ///
+    /// let start = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let end = NaiveDate::from_ymd_opt(2026, 8, 31).unwrap();
+    /// assert_eq!(forecast.net_cash_flow(start, end, None).unwrap(), dec!(600));
+    /// assert_eq!(
+    ///     forecast.net_cash_flow(start, end, Some(CashFlowCategory::Operating)).unwrap(),
+    ///     dec!(1000)
+    /// );
+    /// ```
     pub fn net_cash_flow(
         &self,
         start: NaiveDate,
@@ -85,6 +161,32 @@ impl CashForecast {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the running total overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::{CashFlowCategory, CashFlowItem, CashForecast};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut forecast = CashForecast::new();
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Operating,
+    ///     description: "Payroll".to_string(),
+    ///     amount: dec!(-500),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 20).unwrap(),
+    /// });
+    ///
+    /// let balance = forecast
+    ///     .projected_balance(dec!(1000), NaiveDate::from_ymd_opt(2026, 8, 31).unwrap())
+    ///     .unwrap();
+    /// assert_eq!(balance, dec!(500));
+    ///
+    /// let before_any_items = forecast
+    ///     .projected_balance(dec!(1000), NaiveDate::from_ymd_opt(2026, 8, 1).unwrap())
+    ///     .unwrap();
+    /// assert_eq!(before_any_items, dec!(1000));
+    /// ```
     pub fn projected_balance(
         &self,
         opening_balance: Dollar,
@@ -108,6 +210,28 @@ impl CashForecast {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if a running total overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::treasury::cashflow::{CashFlowCategory, CashFlowItem, CashForecast};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let mut forecast = CashForecast::new();
+    /// forecast.add(CashFlowItem {
+    ///     category: CashFlowCategory::Operating,
+    ///     description: "Big payment".to_string(),
+    ///     amount: dec!(-1500),
+    ///     date: NaiveDate::from_ymd_opt(2026, 8, 20).unwrap(),
+    /// });
+    ///
+    /// let shortfall = forecast.first_shortfall_date(dec!(1000)).unwrap();
+    /// assert_eq!(shortfall, Some(NaiveDate::from_ymd_opt(2026, 8, 20).unwrap()));
+    ///
+    /// let no_shortfall = forecast.first_shortfall_date(dec!(2000)).unwrap();
+    /// assert_eq!(no_shortfall, None);
+    /// ```
     pub fn first_shortfall_date(
         &self,
         opening_balance: Dollar,

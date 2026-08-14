@@ -16,7 +16,7 @@ fn app_state() -> web::Data<AppState> {
 }
 
 #[actix_web::test]
-async fn ledger_register_list_and_trial_balance_round_trip() {
+async fn ledger_register_and_list_accounts() {
     let state = app_state();
     let app = test::init_service(
         App::new()
@@ -29,8 +29,7 @@ async fn ledger_register_list_and_trial_balance_round_trip() {
         .uri("/api/v1/ledger/accounts")
         .set_json(json!({ "code": 1000, "name": "Cash", "account_type": "Asset", "parent": null }))
         .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 201);
+    assert_eq!(test::call_service(&app, req).await.status(), 201);
 
     let req = test::TestRequest::post()
         .uri("/api/v1/ledger/accounts")
@@ -38,8 +37,7 @@ async fn ledger_register_list_and_trial_balance_round_trip() {
             json!({ "code": 3000, "name": "Owner Equity", "account_type": "Equity", "parent": null }),
         )
         .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 201);
+    assert_eq!(test::call_service(&app, req).await.status(), 201);
 
     // Duplicate registration is rejected.
     let req = test::TestRequest::post()
@@ -56,6 +54,37 @@ async fn ledger_register_list_and_trial_balance_round_trip() {
     assert!(resp.status().is_success());
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body.as_array().unwrap().len(), 2);
+
+    let req = test::TestRequest::get()
+        .uri("/api/v1/ledger/accounts/9999")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 404);
+}
+
+#[actix_web::test]
+async fn journal_posting_updates_balances_and_trial_balance() {
+    let state = app_state();
+    let app = test::init_service(
+        App::new()
+            .app_data(state.clone())
+            .configure(routes::configure),
+    )
+    .await;
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/ledger/accounts")
+        .set_json(json!({ "code": 1000, "name": "Cash", "account_type": "Asset", "parent": null }))
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 201);
+
+    let req = test::TestRequest::post()
+        .uri("/api/v1/ledger/accounts")
+        .set_json(
+            json!({ "code": 3000, "name": "Owner Equity", "account_type": "Equity", "parent": null }),
+        )
+        .to_request();
+    assert_eq!(test::call_service(&app, req).await.status(), 201);
 
     let req = test::TestRequest::post()
         .uri("/api/v1/journal/entries")
@@ -98,12 +127,6 @@ async fn ledger_register_list_and_trial_balance_round_trip() {
     let body: Value = test::read_body_json(resp).await;
     let entries = body.as_array().unwrap();
     assert_eq!(entries.len(), 2);
-
-    let req = test::TestRequest::get()
-        .uri("/api/v1/ledger/accounts/9999")
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 404);
 }
 
 #[actix_web::test]

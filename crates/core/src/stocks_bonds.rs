@@ -490,6 +490,39 @@ pub fn modified_duration(
         })
 }
 
+/// One period's discounted cash flow and its weighted convexity contribution
+/// (`CF_t / (1+r)^t` and the `t(t+1)`-weighted term from convexity's sum),
+/// factored out of [`convexity`] to keep that function's body within the
+/// project's 60-line limit.
+fn convexity_term(
+    cash_flow: Dollar,
+    base: Decimal,
+    square: Decimal,
+    t: u64,
+) -> Result<(Decimal, Decimal), CalculationError> {
+    let factor = base.checked_powu(t).ok_or(CalculationError::Overflow {
+        formula: "convexity",
+    })?;
+    let discounted = cash_flow
+        .checked_div(factor)
+        .ok_or(CalculationError::Overflow {
+            formula: "convexity",
+        })?;
+    let weight =
+        Decimal::from(t)
+            .checked_mul(Decimal::from(t + 1))
+            .ok_or(CalculationError::Overflow {
+                formula: "convexity",
+            })?;
+    let term = discounted
+        .checked_mul(weight)
+        .and_then(|v| v.checked_div(square))
+        .ok_or(CalculationError::Overflow {
+            formula: "convexity",
+        })?;
+    Ok((discounted, term))
+}
+
 /// Convexity: the curvature of a bond's price-yield relationship.
 ///
 /// `cash_flows[i]` is treated as occurring at period `i + 1`.
@@ -546,27 +579,9 @@ pub fn convexity(cash_flows: &[Dollar], rate: Rate) -> Result<Decimal, Calculati
         let t = u64::try_from(index + 1).map_err(|_| CalculationError::Overflow {
             formula: "convexity",
         })?;
-        let factor = base.checked_powu(t).ok_or(CalculationError::Overflow {
-            formula: "convexity",
-        })?;
-        let discounted = cash_flow
-            .checked_div(factor)
-            .ok_or(CalculationError::Overflow {
-                formula: "convexity",
-            })?;
+        let (discounted, term) = convexity_term(*cash_flow, base, square, t)?;
         price_sum = price_sum
             .checked_add(discounted)
-            .ok_or(CalculationError::Overflow {
-                formula: "convexity",
-            })?;
-        let weight = Decimal::from(t).checked_mul(Decimal::from(t + 1)).ok_or(
-            CalculationError::Overflow {
-                formula: "convexity",
-            },
-        )?;
-        let term = discounted
-            .checked_mul(weight)
-            .and_then(|v| v.checked_div(square))
             .ok_or(CalculationError::Overflow {
                 formula: "convexity",
             })?;

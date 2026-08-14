@@ -14,6 +14,38 @@ use std::hash::BuildHasher;
 /// Builds a [`CausalityEngine`] over `chart`'s parent/child roll-up hierarchy:
 /// an edge `child -> parent` means the parent's balance causally depends on
 /// the child's, so children are always ordered before their parents.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ledger::account::{Account, AccountCode, AccountType, ChartOfAccounts};
+/// use casiros_erp::ledger::consolidation::build_rollup_graph;
+///
+/// let mut chart = ChartOfAccounts::new();
+/// chart
+///     .register(Account {
+///         code: AccountCode(1000),
+///         name: "Total Assets".to_string(),
+///         account_type: AccountType::Asset,
+///         parent: None,
+///     })
+///     .unwrap();
+/// chart
+///     .register(Account {
+///         code: AccountCode(1010),
+///         name: "Cash".to_string(),
+///         account_type: AccountType::Asset,
+///         parent: Some(AccountCode(1000)),
+///     })
+///     .unwrap();
+///
+/// let graph = build_rollup_graph(&chart);
+/// let order = graph.execution_order().unwrap();
+/// assert_eq!(order.len(), 2);
+/// let child_index = order.iter().position(|c| *c == AccountCode(1010)).unwrap();
+/// let parent_index = order.iter().position(|c| *c == AccountCode(1000)).unwrap();
+/// assert!(child_index < parent_index);
+/// ```
 #[must_use]
 pub fn build_rollup_graph(chart: &ChartOfAccounts) -> CausalityEngine<AccountCode> {
     let mut engine = CausalityEngine::new();
@@ -36,6 +68,39 @@ pub fn build_rollup_graph(chart: &ChartOfAccounts) -> CausalityEngine<AccountCod
 ///
 /// Returns [`ErpError::CyclicHierarchy`] if the roll-up hierarchy contains a
 /// cycle. Returns [`ErpError::Calculation`] if a balance sum overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ledger::account::{Account, AccountCode, AccountType, ChartOfAccounts};
+/// use casiros_erp::ledger::consolidation::recompute_rollups;
+/// use rust_decimal_macros::dec;
+/// use std::collections::HashMap;
+///
+/// let mut chart = ChartOfAccounts::new();
+/// chart
+///     .register(Account {
+///         code: AccountCode(1000),
+///         name: "Total Assets".to_string(),
+///         account_type: AccountType::Asset,
+///         parent: None,
+///     })
+///     .unwrap();
+/// chart
+///     .register(Account {
+///         code: AccountCode(1010),
+///         name: "Cash".to_string(),
+///         account_type: AccountType::Asset,
+///         parent: Some(AccountCode(1000)),
+///     })
+///     .unwrap();
+///
+/// let mut balances = HashMap::new();
+/// balances.insert(AccountCode(1010), dec!(500));
+/// recompute_rollups(&chart, &mut balances).unwrap();
+/// assert_eq!(balances[&AccountCode(1000)], dec!(500));
+/// assert_eq!(balances[&AccountCode(1010)], dec!(500));
+/// ```
 pub fn recompute_rollups<S: BuildHasher>(
     chart: &ChartOfAccounts,
     balances: &mut HashMap<AccountCode, Dollar, S>,

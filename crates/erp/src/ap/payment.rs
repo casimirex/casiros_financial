@@ -78,6 +78,37 @@ fn collect_candidates(
 /// Returns [`CalculationError::Overflow`] if a running total overflows, or
 /// whatever error [`can_approve_payment`] produces for degenerate inputs
 /// (e.g. zero `current_liabilities`).
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ap::invoice::ApInvoice;
+/// use casiros_erp::ap::payment::propose_payments;
+/// use casiros_erp::ap::supplier::{PaymentTerms, SupplierId};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let supplier = SupplierId::new();
+/// let invoice = ApInvoice::new(
+///     supplier,
+///     "INV-001",
+///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+///     dec!(500),
+///     PaymentTerms::net(30),
+/// )
+/// .unwrap();
+///
+/// let proposals = propose_payments(
+///     &[invoice],
+///     NaiveDate::from_ymd_opt(2026, 8, 15).unwrap(),
+///     dec!(10_000),
+///     dec!(5_000),
+/// )
+/// .unwrap();
+/// assert_eq!(proposals.len(), 1);
+/// assert_eq!(proposals[0].total_amount, dec!(500));
+/// assert_eq!(proposals[0].supplier, supplier);
+/// ```
 pub fn propose_payments(
     invoices: &[ApInvoice],
     as_of: NaiveDate,

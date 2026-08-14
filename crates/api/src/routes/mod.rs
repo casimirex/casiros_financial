@@ -59,6 +59,68 @@ use utoipa_swagger_ui::SwaggerUi;
 )]
 pub struct ApiDoc;
 
+fn configure_ledger(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/ledger")
+            .route("/accounts", web::post().to(ledger::register_account))
+            .route("/accounts", web::get().to(ledger::list_accounts))
+            .route("/accounts/{code}", web::get().to(ledger::get_account))
+            .route(
+                "/accounts/{code}/balance",
+                web::get().to(ledger::get_account_balance),
+            )
+            .route("/trial-balance", web::get().to(ledger::trial_balance)),
+    );
+}
+
+fn configure_journal(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/journal")
+            .route("/entries", web::post().to(journal::post_entry))
+            .route("/entries", web::get().to(journal::list_entries)),
+    );
+}
+
+fn configure_ap(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/ap")
+            .route("/suppliers", web::post().to(ap::create_supplier))
+            .route("/suppliers", web::get().to(ap::list_suppliers))
+            .route("/invoices", web::post().to(ap::create_invoice))
+            .route("/invoices", web::get().to(ap::list_invoices))
+            .route("/aging", web::get().to(ap::aging))
+            .route("/payments/propose", web::post().to(ap::propose)),
+    );
+}
+
+fn configure_ar(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/ar")
+            .route("/customers", web::post().to(ar::create_customer))
+            .route("/customers", web::get().to(ar::list_customers))
+            .route("/invoices", web::post().to(ar::create_invoice))
+            .route("/invoices", web::get().to(ar::list_invoices))
+            .route("/receipts/allocate", web::post().to(ar::allocate)),
+    );
+}
+
+fn configure_treasury(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/treasury")
+            .route(
+                "/cashflow/items",
+                web::post().to(treasury::add_cashflow_item),
+            )
+            .route("/cashflow/projection", web::get().to(treasury::projection))
+            .route("/cashflow/shortfall", web::get().to(treasury::shortfall))
+            .route("/fx/convert", web::post().to(treasury::convert))
+            .route(
+                "/hedge/effectiveness",
+                web::post().to(treasury::hedge_effectiveness_handler),
+            ),
+    );
+}
+
 /// Registers every implemented route (including Swagger UI and the raw
 /// `OpenAPI` document) onto `cfg`.
 ///
@@ -78,53 +140,11 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             )
             .route("/simulate", web::post().to(simulate::handle_simulate))
             .route("/narrative", web::post().to(narrative::generate))
-            .service(
-                web::scope("/ledger")
-                    .route("/accounts", web::post().to(ledger::register_account))
-                    .route("/accounts", web::get().to(ledger::list_accounts))
-                    .route("/accounts/{code}", web::get().to(ledger::get_account))
-                    .route(
-                        "/accounts/{code}/balance",
-                        web::get().to(ledger::get_account_balance),
-                    )
-                    .route("/trial-balance", web::get().to(ledger::trial_balance)),
-            )
-            .service(
-                web::scope("/journal")
-                    .route("/entries", web::post().to(journal::post_entry))
-                    .route("/entries", web::get().to(journal::list_entries)),
-            )
-            .service(
-                web::scope("/ap")
-                    .route("/suppliers", web::post().to(ap::create_supplier))
-                    .route("/suppliers", web::get().to(ap::list_suppliers))
-                    .route("/invoices", web::post().to(ap::create_invoice))
-                    .route("/invoices", web::get().to(ap::list_invoices))
-                    .route("/aging", web::get().to(ap::aging))
-                    .route("/payments/propose", web::post().to(ap::propose)),
-            )
-            .service(
-                web::scope("/ar")
-                    .route("/customers", web::post().to(ar::create_customer))
-                    .route("/customers", web::get().to(ar::list_customers))
-                    .route("/invoices", web::post().to(ar::create_invoice))
-                    .route("/invoices", web::get().to(ar::list_invoices))
-                    .route("/receipts/allocate", web::post().to(ar::allocate)),
-            )
-            .service(
-                web::scope("/treasury")
-                    .route(
-                        "/cashflow/items",
-                        web::post().to(treasury::add_cashflow_item),
-                    )
-                    .route("/cashflow/projection", web::get().to(treasury::projection))
-                    .route("/cashflow/shortfall", web::get().to(treasury::shortfall))
-                    .route("/fx/convert", web::post().to(treasury::convert))
-                    .route(
-                        "/hedge/effectiveness",
-                        web::post().to(treasury::hedge_effectiveness_handler),
-                    ),
-            ),
+            .configure(configure_ledger)
+            .configure(configure_journal)
+            .configure(configure_ap)
+            .configure(configure_ar)
+            .configure(configure_treasury),
     );
     cfg.route("/ws/simulate", web::get().to(simulate::ws_simulate));
     cfg.service(

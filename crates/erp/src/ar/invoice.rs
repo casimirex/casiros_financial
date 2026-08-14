@@ -86,6 +86,44 @@ impl ArInvoice {
     /// strictly positive. Returns [`ErpError::InvalidRecognitionPeriod`] if
     /// `recognition_method` is [`RecognitionMethod::RatablyOverTime`] with
     /// `end <= start`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime {
+    ///         recognition_date: NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     },
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.amount, dec!(1000));
+    /// assert_eq!(invoice.amount_received, dec!(0));
+    ///
+    /// // A ratable period with end <= start is rejected.
+    /// let invalid = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-002",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::RatablyOverTime {
+    ///         start: NaiveDate::from_ymd_opt(2026, 9, 1).unwrap(),
+    ///         end: NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     },
+    /// );
+    /// assert!(invalid.is_err());
+    /// ```
     pub fn new(
         customer: CustomerId,
         invoice_number: impl Into<String>,
@@ -124,6 +162,29 @@ impl ArInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the resulting date is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     invoice_date,
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime { recognition_date: invoice_date },
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.due_date().unwrap(), NaiveDate::from_ymd_opt(2026, 8, 31).unwrap());
+    /// assert!(invoice.due_date().unwrap() > invoice_date);
+    /// ```
     pub fn due_date(&self) -> Result<NaiveDate, CalculationError> {
         self.terms.due_date(self.invoice_date)
     }
@@ -133,6 +194,30 @@ impl ArInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the subtraction overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let mut invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     invoice_date,
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime { recognition_date: invoice_date },
+    /// )
+    /// .unwrap();
+    /// assert_eq!(invoice.balance_due().unwrap(), dec!(1000));
+    /// invoice.apply_receipt(dec!(400)).unwrap();
+    /// assert_eq!(invoice.balance_due().unwrap(), dec!(600));
+    /// ```
     pub fn balance_due(&self) -> Result<Dollar, CalculationError> {
         self.amount
             .checked_sub(self.amount_received)
@@ -146,6 +231,29 @@ impl ArInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if a date or balance computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     invoice_date,
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime { recognition_date: invoice_date },
+    /// )
+    /// .unwrap();
+    /// assert!(!invoice.is_overdue(NaiveDate::from_ymd_opt(2026, 8, 15).unwrap()).unwrap());
+    /// assert!(invoice.is_overdue(NaiveDate::from_ymd_opt(2026, 9, 15).unwrap()).unwrap());
+    /// ```
     pub fn is_overdue(&self, as_of: NaiveDate) -> Result<bool, CalculationError> {
         Ok(as_of > self.due_date()? && self.balance_due()? > Decimal::ZERO)
     }
@@ -158,6 +266,30 @@ impl ArInvoice {
     /// Returns [`ErpError::PaymentExceedsBalance`] if `amount` exceeds the
     /// current balance due. Returns [`ErpError::Calculation`] with
     /// [`CalculationError::NegativeValueInvalid`] if `amount` is negative.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, ArInvoiceStatus, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+    /// let mut invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     invoice_date,
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime { recognition_date: invoice_date },
+    /// )
+    /// .unwrap();
+    /// invoice.apply_receipt(dec!(1000)).unwrap();
+    /// assert_eq!(invoice.status, ArInvoiceStatus::Collected);
+    /// assert!(invoice.apply_receipt(dec!(1)).is_err(), "already fully collected");
+    /// ```
     pub fn apply_receipt(&mut self, amount: Dollar) -> Result<(), ErpError> {
         if amount < Decimal::ZERO {
             return Err(CalculationError::NegativeValueInvalid {
@@ -193,6 +325,34 @@ impl ArInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the proration computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(1200),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::RatablyOverTime {
+    ///         start: NaiveDate::from_ymd_opt(2026, 1, 1).unwrap(),
+    ///         end: NaiveDate::from_ymd_opt(2026, 12, 31).unwrap(),
+    ///     },
+    /// )
+    /// .unwrap();
+    /// // Halfway through the service period, roughly half is recognized.
+    /// let halfway = NaiveDate::from_ymd_opt(2026, 7, 2).unwrap();
+    /// let recognized = invoice.recognized_revenue_as_of(halfway).unwrap();
+    /// assert!(recognized > dec!(500));
+    /// assert!(recognized < dec!(700));
+    /// ```
     pub fn recognized_revenue_as_of(&self, as_of: NaiveDate) -> Result<Dollar, CalculationError> {
         match self.recognition_method {
             RecognitionMethod::PointInTime { recognition_date } => {
@@ -228,6 +388,31 @@ impl ArInvoice {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the underlying computation overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ap::supplier::PaymentTerms;
+    /// use casiros_erp::ar::customer::CustomerId;
+    /// use casiros_erp::ar::invoice::{ArInvoice, RecognitionMethod};
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let recognition_date = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    /// let invoice = ArInvoice::new(
+    ///     CustomerId::new(),
+    ///     "AR-001",
+    ///     NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(),
+    ///     dec!(1000),
+    ///     PaymentTerms::net(30),
+    ///     RecognitionMethod::PointInTime { recognition_date },
+    /// )
+    /// .unwrap();
+    /// // Before the recognition date, the full amount is deferred.
+    /// let before = NaiveDate::from_ymd_opt(2026, 8, 15).unwrap();
+    /// assert_eq!(invoice.deferred_revenue_as_of(before).unwrap(), dec!(1000));
+    /// assert_eq!(invoice.deferred_revenue_as_of(recognition_date).unwrap(), dec!(0));
+    /// ```
     pub fn deferred_revenue_as_of(&self, as_of: NaiveDate) -> Result<Dollar, CalculationError> {
         let recognized = self.recognized_revenue_as_of(as_of)?;
         self.amount
@@ -258,6 +443,32 @@ pub enum DunningLevel {
 /// # Errors
 ///
 /// Returns [`CalculationError::Overflow`] if `invoice`'s due date computation overflows.
+///
+/// # Examples
+///
+/// ```
+/// use casiros_erp::ap::supplier::PaymentTerms;
+/// use casiros_erp::ar::customer::CustomerId;
+/// use casiros_erp::ar::invoice::{ArInvoice, DunningLevel, RecognitionMethod, dunning_level};
+/// use chrono::NaiveDate;
+/// use rust_decimal_macros::dec;
+///
+/// let invoice_date = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+/// let invoice = ArInvoice::new(
+///     CustomerId::new(),
+///     "AR-001",
+///     invoice_date,
+///     dec!(1000),
+///     PaymentTerms::net(30),
+///     RecognitionMethod::PointInTime { recognition_date: invoice_date },
+/// )
+/// .unwrap();
+/// let not_yet_due = dunning_level(&invoice, NaiveDate::from_ymd_opt(2026, 8, 15).unwrap()).unwrap();
+/// assert_eq!(not_yet_due, DunningLevel::None);
+///
+/// let mildly_overdue = dunning_level(&invoice, NaiveDate::from_ymd_opt(2026, 9, 5).unwrap()).unwrap();
+/// assert_eq!(mildly_overdue, DunningLevel::Reminder);
+/// ```
 pub fn dunning_level(
     invoice: &ArInvoice,
     as_of: NaiveDate,

@@ -21,6 +21,17 @@ impl FiscalPeriod {
     /// # Errors
     ///
     /// Returns `Err` if `month` is not in `1..=12`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    ///
+    /// let period = FiscalPeriod::new(2026, 8).unwrap();
+    /// assert_eq!(period.year, 2026);
+    /// assert_eq!(period.month, 8);
+    /// assert!(FiscalPeriod::new(2026, 13).is_err());
+    /// ```
     pub fn new(year: i32, month: u32) -> Result<Self, String> {
         if !(1..=12).contains(&month) {
             return Err(format!("month must be in 1..=12, got {month}"));
@@ -29,6 +40,18 @@ impl FiscalPeriod {
     }
 
     /// The fiscal period containing `date`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    /// use chrono::NaiveDate;
+    ///
+    /// let date = NaiveDate::from_ymd_opt(2026, 8, 13).unwrap();
+    /// let period = FiscalPeriod::containing(date);
+    /// assert_eq!(period.year, 2026);
+    /// assert_eq!(period.month, 8);
+    /// ```
     #[must_use]
     pub fn containing(date: NaiveDate) -> Self {
         Self {
@@ -38,6 +61,19 @@ impl FiscalPeriod {
     }
 
     /// Whether `date` falls within this fiscal period.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    /// use chrono::NaiveDate;
+    ///
+    /// let period = FiscalPeriod::new(2026, 8).unwrap();
+    /// let in_august = NaiveDate::from_ymd_opt(2026, 8, 13).unwrap();
+    /// let in_september = NaiveDate::from_ymd_opt(2026, 9, 1).unwrap();
+    /// assert!(period.contains(in_august));
+    /// assert!(!period.contains(in_september));
+    /// ```
     #[must_use]
     pub fn contains(self, date: NaiveDate) -> bool {
         Self::containing(date) == self

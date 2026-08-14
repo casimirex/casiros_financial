@@ -2,6 +2,7 @@
 
 use casiros_core::error::CalculationError;
 use rust_decimal::Decimal;
+use rust_decimal::MathematicalOps;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal_macros::dec;
 use serde::{Deserialize, Serialize};
@@ -74,8 +75,9 @@ fn welford_mean_variance(values: &[Decimal]) -> Result<(Decimal, Decimal), Calcu
     Ok((mean, variance))
 }
 
-/// Computes the square root of a non-negative `Decimal`, converting to `f64`
-/// only for the `sqrt` itself.
+/// Computes the square root of a non-negative `Decimal`, entirely in
+/// `Decimal` precision (via `rust_decimal`'s "maths" feature) — no `f64`
+/// round-trip.
 fn decimal_sqrt(value: Decimal) -> Result<Decimal, CalculationError> {
     let formula = "aggregation::decimal_sqrt";
     if value < Decimal::ZERO {
@@ -84,10 +86,7 @@ fn decimal_sqrt(value: Decimal) -> Result<Decimal, CalculationError> {
             value,
         });
     }
-    let value_f64 = value
-        .to_f64()
-        .ok_or(CalculationError::Overflow { formula })?;
-    Decimal::from_f64_retain(value_f64.sqrt()).ok_or(CalculationError::Overflow { formula })
+    value.sqrt().ok_or(CalculationError::Overflow { formula })
 }
 
 /// Computes the `p`-th percentile (`p` in `[0, 1]`) of an ascending-sorted slice

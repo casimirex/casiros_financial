@@ -15,6 +15,17 @@ pub struct CustomerId(pub Uuid);
 
 impl CustomerId {
     /// Generates a new, random customer id.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ar::customer::CustomerId;
+    ///
+    /// let a = CustomerId::new();
+    /// let b = CustomerId::new();
+    /// assert_ne!(a, b);
+    /// assert_eq!(a, a);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         Self(Uuid::new_v4())

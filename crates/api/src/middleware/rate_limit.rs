@@ -47,3 +47,52 @@ impl RateLimiter {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RateLimiter;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::time::Duration;
+
+    fn localhost() -> IpAddr {
+        IpAddr::V4(Ipv4Addr::LOCALHOST)
+    }
+
+    #[test]
+    fn allows_requests_within_the_limit() {
+        let limiter = RateLimiter::new(3, Duration::from_secs(60));
+        let ip = localhost();
+        assert!(limiter.check(ip));
+        assert!(limiter.check(ip));
+        assert!(limiter.check(ip));
+    }
+
+    #[test]
+    fn rejects_requests_once_the_limit_is_exceeded() {
+        let limiter = RateLimiter::new(2, Duration::from_secs(60));
+        let ip = localhost();
+        assert!(limiter.check(ip));
+        assert!(limiter.check(ip));
+        assert!(!limiter.check(ip));
+    }
+
+    #[test]
+    fn tracks_each_ip_independently() {
+        let limiter = RateLimiter::new(1, Duration::from_secs(60));
+        let a = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1));
+        let b = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2));
+        assert!(limiter.check(a));
+        assert!(!limiter.check(a));
+        assert!(limiter.check(b));
+    }
+
+    #[test]
+    fn old_timestamps_are_pruned_once_the_window_elapses() {
+        let limiter = RateLimiter::new(1, Duration::from_millis(20));
+        let ip = localhost();
+        assert!(limiter.check(ip));
+        assert!(!limiter.check(ip));
+        std::thread::sleep(Duration::from_millis(30));
+        assert!(limiter.check(ip));
+    }
+}

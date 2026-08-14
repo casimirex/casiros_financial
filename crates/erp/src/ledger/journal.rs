@@ -62,6 +62,20 @@ impl JournalLine {
     ///
     /// Returns [`ErpError::InvalidLine`] unless exactly one of `debit`/`credit`
     /// is strictly positive and the other is exactly zero.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use casiros_erp::ledger::journal::JournalLine;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let debit_line = JournalLine::new(AccountCode(1000), dec!(100), dec!(0), None).unwrap();
+    /// assert_eq!(debit_line.debit, dec!(100));
+    ///
+    /// // Setting both debit and credit is rejected.
+    /// assert!(JournalLine::new(AccountCode(1000), dec!(100), dec!(100), None).is_err());
+    /// ```
     pub fn new(
         account: AccountCode,
         debit: Dollar,
@@ -87,6 +101,20 @@ impl JournalLine {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the subtraction overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use casiros_erp::ledger::journal::JournalLine;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let debit_line = JournalLine::new(AccountCode(1000), dec!(100), dec!(0), None).unwrap();
+    /// assert_eq!(debit_line.signed_amount().unwrap(), dec!(100));
+    ///
+    /// let credit_line = JournalLine::new(AccountCode(2000), dec!(0), dec!(100), None).unwrap();
+    /// assert_eq!(credit_line.signed_amount().unwrap(), dec!(-100));
+    /// ```
     pub fn signed_amount(&self) -> Result<Decimal, CalculationError> {
         self.debit
             .checked_sub(self.credit)
@@ -144,6 +172,32 @@ impl JournalEntry {
     /// Returns an error (via [`CalculationError::MissingInput`]) if `lines` is
     /// empty, or [`ErpError::UnbalancedEntry`] if total debits do not equal
     /// total credits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use casiros_erp::ledger::journal::{JournalEntry, JournalLine, SourceDocument};
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let lines = vec![
+    ///     JournalLine::new(AccountCode(1000), dec!(100), dec!(0), None).unwrap(),
+    ///     JournalLine::new(AccountCode(3000), dec!(0), dec!(100), None).unwrap(),
+    /// ];
+    /// let entry = JournalEntry::new(
+    ///     NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    ///     "Initial capital",
+    ///     lines,
+    ///     None,
+    ///     SourceDocument::ManualEntry,
+    ///     FiscalPeriod::new(2026, 8).unwrap(),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(entry.total_debits().unwrap(), dec!(100));
+    /// assert_eq!(entry.description, "Initial capital");
+    /// ```
     pub fn new(
         date: NaiveDate,
         description: impl Into<String>,
@@ -185,6 +239,32 @@ impl JournalEntry {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the sum overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use casiros_erp::ledger::journal::{JournalEntry, JournalLine, SourceDocument};
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let lines = vec![
+    ///     JournalLine::new(AccountCode(1000), dec!(100), dec!(0), None).unwrap(),
+    ///     JournalLine::new(AccountCode(3000), dec!(0), dec!(100), None).unwrap(),
+    /// ];
+    /// let entry = JournalEntry::new(
+    ///     NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    ///     "Initial capital",
+    ///     lines,
+    ///     None,
+    ///     SourceDocument::ManualEntry,
+    ///     FiscalPeriod::new(2026, 8).unwrap(),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(entry.total_debits().unwrap(), dec!(100));
+    /// assert_eq!(entry.total_credits().unwrap(), dec!(100));
+    /// ```
     pub fn total_debits(&self) -> Result<Dollar, CalculationError> {
         sum_debits(&self.lines)
     }
@@ -194,6 +274,32 @@ impl JournalEntry {
     /// # Errors
     ///
     /// Returns [`CalculationError::Overflow`] if the sum overflows.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use casiros_erp::ledger::account::AccountCode;
+    /// use casiros_erp::ledger::journal::{JournalEntry, JournalLine, SourceDocument};
+    /// use casiros_erp::ledger::period::FiscalPeriod;
+    /// use chrono::NaiveDate;
+    /// use rust_decimal_macros::dec;
+    ///
+    /// let lines = vec![
+    ///     JournalLine::new(AccountCode(1000), dec!(250), dec!(0), None).unwrap(),
+    ///     JournalLine::new(AccountCode(3000), dec!(0), dec!(250), None).unwrap(),
+    /// ];
+    /// let entry = JournalEntry::new(
+    ///     NaiveDate::from_ymd_opt(2026, 8, 13).unwrap(),
+    ///     "Initial capital",
+    ///     lines,
+    ///     None,
+    ///     SourceDocument::ManualEntry,
+    ///     FiscalPeriod::new(2026, 8).unwrap(),
+    /// )
+    /// .unwrap();
+    /// assert_eq!(entry.total_credits().unwrap(), dec!(250));
+    /// assert_eq!(entry.total_credits().unwrap(), entry.total_debits().unwrap());
+    /// ```
     pub fn total_credits(&self) -> Result<Dollar, CalculationError> {
         sum_credits(&self.lines)
     }
