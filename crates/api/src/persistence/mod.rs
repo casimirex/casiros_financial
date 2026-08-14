@@ -10,3 +10,4 @@
 //! the domain type.
 
 pub mod db;
+pub mod ledger;

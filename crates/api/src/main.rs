@@ -8,6 +8,7 @@ use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::{App, HttpServer, web};
 use casiros_api::middleware::rate_limit::RateLimiter;
 use casiros_api::middleware::tracing::{REQUEST_ID_HEADER, new_request_id};
+use casiros_api::persistence::db;
 use casiros_api::routes;
 use casiros_api::state::AppState;
 use std::time::Duration;
@@ -22,6 +23,10 @@ const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
 /// (matching the `CASIROS_<SECTION>__<KEY>` env override convention from
 /// `CASIROS_BUILD_PROMPT.md` section 12).
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:8080";
+/// The default Postgres connection string, overridable via `DATABASE_URL`
+/// — matches `docker-compose.yml`'s `db` service credentials, for local
+/// (non-container) `cargo run` against `make up-d`'s exposed port.
+const DEFAULT_DATABASE_URL: &str = "postgres://casiros:casiros@localhost/casiros";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -34,13 +39,19 @@ async fn main() -> std::io::Result<()> {
 
     let bind_addr = std::env::var("CASIROS_SERVER__BIND_ADDR")
         .unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
+    let database_url =
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| DEFAULT_DATABASE_URL.to_string());
     tracing::info!(bind_addr = %bind_addr, "starting CASIROS API server");
+
+    let pool = db::connect_and_migrate(&database_url)
+        .await
+        .unwrap_or_else(|err| panic!("failed to connect to database and run migrations: {err}"));
 
     let rate_limiter = web::Data::new(RateLimiter::new(RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW));
     // Created once, outside the HttpServer factory closure, and shared (via
     // web::Data's Arc) across every worker thread — see routes::configure's
     // doc comment for why this can't be created inside `configure` itself.
-    let app_state = web::Data::new(AppState::new());
+    let app_state = web::Data::new(AppState::new(pool));
 
     HttpServer::new(move || {
         App::new()

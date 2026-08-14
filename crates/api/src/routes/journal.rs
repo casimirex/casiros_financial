@@ -1,7 +1,8 @@
 //! `/api/v1/journal/*` — posting and listing journal entries.
 
 use crate::error::AppError;
-use crate::state::{AppState, lock};
+use crate::persistence::ledger;
+use crate::state::AppState;
 use actix_web::{HttpResponse, web};
 use casiros_erp::ledger::journal::{JournalEntry, JournalLine, SourceDocument};
 use casiros_erp::ledger::period::FiscalPeriod;
@@ -78,12 +79,12 @@ pub async fn post_entry(
         request.period,
     )?;
 
-    let mut ledger = lock(&state.ledger);
-    ledger.post(entry.clone()).map_err(|err| {
-        error!(entry_id = %entry.id, error = %err, "failed to post journal entry");
-        err
-    })?;
-    drop(ledger);
+    ledger::post_entry(&state.pool, &entry)
+        .await
+        .map_err(|err| {
+            error!(entry_id = %entry.id, error = %err, "failed to post journal entry");
+            err
+        })?;
     info!(entry_id = %entry.id, "journal entry posted");
     Ok(HttpResponse::Created().json(entry))
 }
@@ -92,7 +93,7 @@ pub async fn post_entry(
 ///
 /// # Errors
 ///
-/// This handler is infallible; it always returns `Ok`.
+/// Returns [`AppError::Database`] if the query fails.
 #[utoipa::path(
     get,
     path = "/api/v1/journal/entries",
@@ -101,9 +102,7 @@ pub async fn post_entry(
 )]
 #[instrument(name = "GET /journal/entries", skip(state))]
 pub async fn list_entries(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let ledger = lock(&state.ledger);
-    let entries: Vec<JournalEntry> = ledger.entries().to_vec();
-    drop(ledger);
+    let entries = ledger::list_entries(&state.pool).await?;
     info!(count = entries.len(), "listed journal entries");
     Ok(HttpResponse::Ok().json(entries))
 }

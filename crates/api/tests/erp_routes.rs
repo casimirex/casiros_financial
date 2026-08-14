@@ -5,19 +5,27 @@
 //! every route here reads or writes `AppState`, so each test builds its own
 //! app with a fresh `AppState` registered — mirroring exactly what `main.rs`
 //! does, since `routes::configure` deliberately does not create one itself.
+//! Ledger/journal routes are Postgres-backed as of Phase 9, so `app_state`
+//! spins up its own migrated testcontainer per test (see `tests/support`).
+
+mod support;
 
 use actix_web::{App, test, web};
 use casiros_api::routes;
 use casiros_api::state::AppState;
 use serde_json::{Value, json};
 
-fn app_state() -> web::Data<AppState> {
-    web::Data::new(AppState::new())
+/// Returns app state plus the `TestDb` guard it borrows its pool from — keep
+/// the guard alive for the test's duration (it owns the container).
+async fn app_state() -> (web::Data<AppState>, support::TestDb) {
+    let db = support::test_db().await;
+    let state = web::Data::new(AppState::new(db.pool.clone()));
+    (state, db)
 }
 
 #[actix_web::test]
 async fn ledger_register_and_list_accounts() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -64,7 +72,7 @@ async fn ledger_register_and_list_accounts() {
 
 #[actix_web::test]
 async fn journal_posting_updates_balances_and_trial_balance() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -131,7 +139,7 @@ async fn journal_posting_updates_balances_and_trial_balance() {
 
 #[actix_web::test]
 async fn journal_unbalanced_entry_is_rejected() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -164,7 +172,7 @@ async fn journal_unbalanced_entry_is_rejected() {
 
 #[actix_web::test]
 async fn ap_supplier_invoice_and_aging_round_trip() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -234,7 +242,7 @@ async fn ap_supplier_invoice_and_aging_round_trip() {
 
 #[actix_web::test]
 async fn ap_invoice_with_non_positive_amount_is_422() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -270,7 +278,7 @@ async fn ap_invoice_with_non_positive_amount_is_422() {
 
 #[actix_web::test]
 async fn ar_customer_invoice_and_receipt_allocation_round_trip() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -337,7 +345,7 @@ async fn ar_customer_invoice_and_receipt_allocation_round_trip() {
 
 #[actix_web::test]
 async fn treasury_cashflow_projection_and_shortfall() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -374,7 +382,7 @@ async fn treasury_cashflow_projection_and_shortfall() {
 
 #[actix_web::test]
 async fn treasury_fx_convert_is_stateless() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
@@ -397,7 +405,7 @@ async fn treasury_fx_convert_is_stateless() {
 
 #[actix_web::test]
 async fn treasury_hedge_effectiveness_is_stateless() {
-    let state = app_state();
+    let (state, _db) = app_state().await;
     let app = test::init_service(
         App::new()
             .app_data(state.clone())

@@ -1,7 +1,8 @@
 //! `/api/v1/ledger/*` — chart of accounts and balances.
 
 use crate::error::AppError;
-use crate::state::{AppState, lock};
+use crate::persistence::ledger;
+use crate::state::AppState;
 use actix_web::{HttpResponse, web};
 use casiros_core::types::Dollar;
 use casiros_erp::ledger::account::{Account, AccountCode};
@@ -42,9 +43,7 @@ pub async fn register_account(
     account: web::Json<Account>,
 ) -> Result<HttpResponse, AppError> {
     let account = account.into_inner();
-    let mut ledger = lock(&state.ledger);
-    ledger.register_account(account.clone())?;
-    drop(ledger);
+    ledger::register_account(&state.pool, &account).await?;
     info!(code = ?account.code, "account registered");
     Ok(HttpResponse::Created().json(account))
 }
@@ -53,7 +52,7 @@ pub async fn register_account(
 ///
 /// # Errors
 ///
-/// This handler is infallible; it always returns `Ok`.
+/// Returns [`AppError::Database`] if the query fails.
 #[utoipa::path(
     get,
     path = "/api/v1/ledger/accounts",
@@ -62,9 +61,7 @@ pub async fn register_account(
 )]
 #[instrument(name = "GET /ledger/accounts", skip(state))]
 pub async fn list_accounts(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let ledger = lock(&state.ledger);
-    let accounts: Vec<Account> = ledger.chart().accounts().cloned().collect();
-    drop(ledger);
+    let accounts = ledger::list_accounts(&state.pool).await?;
     info!(count = accounts.len(), "listed accounts");
     Ok(HttpResponse::Ok().json(accounts))
 }
@@ -90,12 +87,12 @@ pub async fn get_account(
     code: web::Path<u32>,
 ) -> Result<HttpResponse, AppError> {
     let code = AccountCode(code.into_inner());
-    let ledger = lock(&state.ledger);
-    let account = ledger.chart().get(code).cloned().ok_or_else(|| {
-        error!(?code, "account not found");
-        AppError::NotFound(format!("no account with code {}", code.0))
-    })?;
-    drop(ledger);
+    let account = ledger::get_account(&state.pool, code)
+        .await?
+        .ok_or_else(|| {
+            error!(?code, "account not found");
+            AppError::NotFound(format!("no account with code {}", code.0))
+        })?;
     Ok(HttpResponse::Ok().json(account))
 }
 
@@ -103,8 +100,10 @@ pub async fn get_account(
 ///
 /// # Errors
 ///
-/// Returns [`AppError::Erp`] (404) if no account has that code, or (422) if
-/// the roll-up hierarchy contains a cycle.
+/// Returns [`AppError::NotFound`] (404) if no account has that code, or
+/// [`AppError::Internal`] (500) if the account hierarchy contains a cycle
+/// (see `persistence::ledger`'s module docs for why this can't happen
+/// through [`register_account`]'s own constraints).
 #[utoipa::path(
     get,
     path = "/api/v1/ledger/accounts/{code}/balance",
@@ -121,9 +120,7 @@ pub async fn get_account_balance(
     code: web::Path<u32>,
 ) -> Result<HttpResponse, AppError> {
     let code = AccountCode(code.into_inner());
-    let mut ledger = lock(&state.ledger);
-    let balance = ledger.balance(code)?;
-    drop(ledger);
+    let balance = ledger::account_balance(&state.pool, code).await?;
     info!(?code, %balance, "balance computed");
     Ok(HttpResponse::Ok().json(AccountBalance { code, balance }))
 }
@@ -132,7 +129,7 @@ pub async fn get_account_balance(
 ///
 /// # Errors
 ///
-/// Returns [`AppError::Erp`] (422) if the roll-up hierarchy contains a cycle.
+/// Returns [`AppError::Internal`] (500) if the account hierarchy contains a cycle.
 #[utoipa::path(
     get,
     path = "/api/v1/ledger/trial-balance",
@@ -141,9 +138,7 @@ pub async fn get_account_balance(
 )]
 #[instrument(name = "GET /ledger/trial-balance", skip(state))]
 pub async fn trial_balance(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let mut ledger = lock(&state.ledger);
-    let balances = ledger.trial_balance()?;
-    drop(ledger);
+    let balances = ledger::trial_balance(&state.pool).await?;
     let response: Vec<AccountBalance> = balances
         .into_iter()
         .map(|(code, balance)| AccountBalance { code, balance })

@@ -1,26 +1,26 @@
-//! Shared, in-memory application state for the ERP routes.
+//! Shared application state for the ERP routes.
 //!
-//! No persistence layer is wired up (matching the original build prompt's
-//! `casiros-api` `Cargo.toml`, which lists no database crate either); state
-//! lives for the lifetime of the process, guarded by a `Mutex` per entity
-//! collection so handlers can be `Send`.
+//! Ledger/journal state is Postgres-backed (via `pool`, see
+//! `crate::persistence`) as of Phase 9. AP, AR, and treasury state are
+//! still in-memory pending Phase 9's later steps; `budget_model` stays
+//! in-memory by design (out of Phase 9's scope — see `ROADMAP.md`).
 
 use casiros_erp::ap::invoice::{ApInvoice, ApInvoiceId};
 use casiros_erp::ap::supplier::{Supplier, SupplierId};
 use casiros_erp::ar::customer::{Customer, CustomerId};
 use casiros_erp::ar::invoice::{ArInvoice, ArInvoiceId};
 use casiros_erp::budget::model::BudgetModel;
-use casiros_erp::ledger::Ledger;
-use casiros_erp::ledger::account::ChartOfAccounts;
 use casiros_erp::treasury::cashflow::CashForecast;
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-/// Shared application state, mounted once per server and cloned (cheaply,
-/// via `web::Data`'s internal `Arc`) into every worker.
+/// Shared application state, mounted once per server and cloned (cheaply —
+/// `PgPool` and `web::Data`'s internal `Arc` are both cheap to clone) into
+/// every worker.
 pub struct AppState {
-    /// The causal general ledger: chart of accounts, posted entries, balances.
-    pub ledger: Mutex<Ledger>,
+    /// The Postgres connection pool backing the ledger and journal.
+    pub pool: PgPool,
     /// Registered AP suppliers, keyed by id.
     pub suppliers: Mutex<HashMap<SupplierId, Supplier>>,
     /// Open and settled AP invoices, keyed by id.
@@ -36,11 +36,13 @@ pub struct AppState {
 }
 
 impl AppState {
-    /// Creates empty application state: no accounts, no invoices, no forecast items.
+    /// Creates application state backed by `pool`. AP/AR/treasury/budget
+    /// start empty; ledger/journal data lives in whatever `pool` already
+    /// has migrated into it.
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            ledger: Mutex::new(Ledger::new(ChartOfAccounts::new())),
+            pool,
             suppliers: Mutex::new(HashMap::new()),
             ap_invoices: Mutex::new(HashMap::new()),
             customers: Mutex::new(HashMap::new()),
@@ -48,12 +50,6 @@ impl AppState {
             cash_forecast: Mutex::new(CashForecast::new()),
             budget_model: Mutex::new(BudgetModel::new()),
         }
-    }
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

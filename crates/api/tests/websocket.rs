@@ -3,6 +3,12 @@
 //! progress/final message sequence, rather than just exercising the handler
 //! through `actix_web::test::call_service` (which can't drive a WebSocket
 //! upgrade).
+//!
+//! `/ws/simulate` itself touches no `AppState` field, but `AppState`
+//! construction still needs a real (Postgres-backed) pool as of Phase 9 —
+//! see `tests/support`.
+
+mod support;
 
 use actix_web::{App, web};
 use awc::ws;
@@ -26,9 +32,11 @@ fn sample_universe() -> Value {
 
 #[actix_web::test]
 async fn ws_simulate_streams_progress_then_final() {
-    let mut srv = actix_test::start(|| {
+    let db = support::test_db().await;
+    let pool = db.pool.clone();
+    let mut srv = actix_test::start(move || {
         App::new()
-            .app_data(web::Data::new(AppState::new()))
+            .app_data(web::Data::new(AppState::new(pool.clone())))
             .configure(routes::configure)
     });
 
@@ -74,9 +82,11 @@ async fn ws_simulate_streams_progress_then_final() {
 
 #[actix_web::test]
 async fn ws_simulate_reports_invalid_json_as_an_error_message() {
-    let mut srv = actix_test::start(|| {
+    let db = support::test_db().await;
+    let pool = db.pool.clone();
+    let mut srv = actix_test::start(move || {
         App::new()
-            .app_data(web::Data::new(AppState::new()))
+            .app_data(web::Data::new(AppState::new(pool.clone())))
             .configure(routes::configure)
     });
 
