@@ -1,7 +1,8 @@
 //! `/api/v1/treasury/*` — cash forecasting, FX conversion, and hedge effectiveness.
 
 use crate::error::AppError;
-use crate::state::{AppState, lock};
+use crate::persistence::treasury;
+use crate::state::AppState;
 use actix_web::{HttpResponse, web};
 use casiros_core::types::Dollar;
 use casiros_erp::treasury::cashflow::CashFlowItem;
@@ -17,7 +18,7 @@ use utoipa::{IntoParams, ToSchema};
 ///
 /// # Errors
 ///
-/// This handler is infallible; it always returns `Ok`.
+/// Returns [`AppError::Database`] if the query fails.
 #[utoipa::path(
     post,
     path = "/api/v1/treasury/cashflow/items",
@@ -31,7 +32,7 @@ pub async fn add_cashflow_item(
     item: web::Json<CashFlowItem>,
 ) -> Result<HttpResponse, AppError> {
     let item = item.into_inner();
-    lock(&state.cash_forecast).add(item.clone());
+    treasury::add_item(&state.pool, &item).await?;
     info!(date = %item.date, "cash flow item added");
     Ok(HttpResponse::Created().json(item))
 }
@@ -71,8 +72,8 @@ pub async fn projection(
     state: web::Data<AppState>,
     query: web::Query<ProjectionQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let balance =
-        lock(&state.cash_forecast).projected_balance(query.opening_balance, query.as_of)?;
+    let forecast = treasury::load_forecast(&state.pool).await?;
+    let balance = forecast.projected_balance(query.opening_balance, query.as_of)?;
     Ok(HttpResponse::Ok().json(ProjectionResponse { balance }))
 }
 
@@ -108,7 +109,8 @@ pub async fn shortfall(
     state: web::Data<AppState>,
     query: web::Query<ShortfallQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let shortfall_date = lock(&state.cash_forecast).first_shortfall_date(query.opening_balance)?;
+    let forecast = treasury::load_forecast(&state.pool).await?;
+    let shortfall_date = forecast.first_shortfall_date(query.opening_balance)?;
     Ok(HttpResponse::Ok().json(ShortfallResponse { shortfall_date }))
 }
 
