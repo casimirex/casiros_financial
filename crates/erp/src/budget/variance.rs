@@ -6,19 +6,24 @@ use casiros_core::error::CalculationError;
 use casiros_core::types::{Dollar, Ratio};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// The result of comparing one account's budgeted amount to its actual amount.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct VarianceResult {
     /// The account this variance applies to.
     pub account: AccountCode,
     /// The budgeted amount.
+    #[schema(value_type = Decimal)]
     pub budget: Dollar,
     /// The actual amount.
+    #[schema(value_type = Decimal)]
     pub actual: Dollar,
     /// `actual - budget`.
+    #[schema(value_type = Decimal)]
     pub variance: Dollar,
     /// `variance / budget`, or `None` if `budget` is zero (the percentage is undefined).
+    #[schema(value_type = Option<Decimal>)]
     pub variance_percent: Option<Ratio>,
     /// Whether this variance is favorable, per [`analyze_variance`]'s
     /// account-type convention.

@@ -6,6 +6,7 @@ use casiros_core::error::CalculationError;
 use casiros_core::types::{Dollar, Ratio};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Computes the marginal (progressive-bracket) tax owed on `taxable_income`
 /// under `jurisdiction`'s rate schedule.
@@ -119,13 +120,15 @@ pub fn calculate_multi_jurisdiction_tax(
 
 /// Whether a temporary difference produces a deferred tax liability, a
 /// deferred tax asset, or neither.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub enum DeferredTaxPosition {
     /// A taxable temporary difference: book basis exceeds tax basis, so more
     /// tax will be owed in the future as the difference reverses.
+    #[schema(value_type = Decimal)]
     Liability(Dollar),
     /// A deductible temporary difference: tax basis exceeds book basis, so
     /// less tax will be owed in the future as the difference reverses.
+    #[schema(value_type = Decimal)]
     Asset(Dollar),
     /// Book and tax basis are equal: no temporary difference.
     None,
@@ -133,15 +136,18 @@ pub enum DeferredTaxPosition {
 
 /// A single book-versus-tax basis difference for one asset or liability
 /// (e.g. a fixed asset depreciated differently for book and tax purposes).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct TemporaryDifference {
     /// A human-readable description.
     pub description: String,
     /// The carrying value under GAAP/book accounting.
+    #[schema(value_type = Decimal)]
     pub book_basis: Dollar,
     /// The carrying value under tax accounting.
+    #[schema(value_type = Decimal)]
     pub tax_basis: Dollar,
     /// The tax rate expected to apply when the difference reverses.
+    #[schema(value_type = Decimal)]
     pub tax_rate: Ratio,
 }
 

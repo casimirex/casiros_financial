@@ -9,10 +9,11 @@ use casiros_core::types::Dollar;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use utoipa::ToSchema;
 
 /// A budget line item, computed as the product of one or more named drivers
 /// (e.g. `revenue = units_sold * average_price`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct DriverBasedLineItem {
     /// The chart-of-accounts account this line item budgets for.
     pub account: AccountCode,

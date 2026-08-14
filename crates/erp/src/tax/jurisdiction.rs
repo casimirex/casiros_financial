@@ -3,27 +3,30 @@
 use crate::error::ErpError;
 use casiros_core::types::{Dollar, Ratio};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// An identifier for a taxing jurisdiction (e.g. `"US-FEDERAL"`, `"US-CA"`, `"DE"`).
 /// Unlike [`crate::treasury::fx::CurrencyCode`], jurisdictions are not
 /// fixed-width (national, state/provincial, and municipal codes all coexist),
 /// so this simply wraps a `String`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct JurisdictionCode(pub String);
 
 /// One bracket of a progressive tax schedule: income up to `upper_bound`
 /// (exclusive of any lower brackets' ranges) is taxed at `rate`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct TaxBracket {
     /// The upper bound of this bracket's income range, or `None` for the top
     /// (unbounded) bracket.
+    #[schema(value_type = Option<Decimal>)]
     pub upper_bound: Option<Dollar>,
     /// The marginal rate applied to income within this bracket.
+    #[schema(value_type = Decimal)]
     pub rate: Ratio,
 }
 
 /// A taxing jurisdiction's progressive rate schedule.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct TaxJurisdiction {
     /// This jurisdiction's identifier.
     pub code: JurisdictionCode,

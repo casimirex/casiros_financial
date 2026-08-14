@@ -1,5 +1,16 @@
 import { NavLink } from "react-router-dom";
-import { Orbit, Calculator, ScrollText, BookOpen, Gauge } from "lucide-react";
+import {
+  Orbit,
+  Calculator,
+  ScrollText,
+  BookOpen,
+  Gauge,
+  CreditCard,
+  Wallet,
+  Landmark,
+  Percent,
+  PieChart,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -8,6 +19,11 @@ const NAV_ITEMS = [
   { to: "/calculator", label: "Calculator", icon: Calculator, end: false },
   { to: "/narrative", label: "Narrative", icon: ScrollText, end: false },
   { to: "/ledger", label: "Ledger", icon: BookOpen, end: false },
+  { to: "/ap", label: "Payable", icon: CreditCard, end: false },
+  { to: "/ar", label: "Receivable", icon: Wallet, end: false },
+  { to: "/treasury", label: "Treasury", icon: Landmark, end: false },
+  { to: "/tax", label: "Tax", icon: Percent, end: false },
+  { to: "/budget", label: "Budget", icon: PieChart, end: false },
 ] as const;
 
 export function Sidebar() {

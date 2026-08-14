@@ -9,6 +9,7 @@ use casiros_erp::ap::invoice::{ApInvoice, ApInvoiceId};
 use casiros_erp::ap::supplier::{Supplier, SupplierId};
 use casiros_erp::ar::customer::{Customer, CustomerId};
 use casiros_erp::ar::invoice::{ArInvoice, ArInvoiceId};
+use casiros_erp::budget::model::BudgetModel;
 use casiros_erp::ledger::Ledger;
 use casiros_erp::ledger::account::ChartOfAccounts;
 use casiros_erp::treasury::cashflow::CashForecast;
@@ -30,6 +31,8 @@ pub struct AppState {
     pub ar_invoices: Mutex<HashMap<ArInvoiceId, ArInvoice>>,
     /// The treasury cash flow forecast.
     pub cash_forecast: Mutex<CashForecast>,
+    /// The driver-based budget model: named drivers plus the line items computed from them.
+    pub budget_model: Mutex<BudgetModel>,
 }
 
 impl AppState {
@@ -43,6 +46,7 @@ impl AppState {
             customers: Mutex::new(HashMap::new()),
             ar_invoices: Mutex::new(HashMap::new()),
             cash_forecast: Mutex::new(CashForecast::new()),
+            budget_model: Mutex::new(BudgetModel::new()),
         }
     }
 }

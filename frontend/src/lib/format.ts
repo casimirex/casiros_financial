@@ -32,3 +32,18 @@ export function toNumber(value: string): number {
   const parsed = Number.parseFloat(value);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
+
+// CurrencyCode crosses the wire as a raw [u8; 3] byte array (see
+// crates/erp/src/treasury/fx.rs), not a 3-letter string.
+export function currencyCodeToBytes(code: string): [number, number, number] {
+  const padded = code.toUpperCase().padEnd(3, " ").slice(0, 3);
+  return [padded.charCodeAt(0), padded.charCodeAt(1), padded.charCodeAt(2)];
+}
+
+export function bytesToCurrencyCode(bytes: [number, number, number]): string {
+  return String.fromCharCode(...bytes).trim();
+}
+
+export function shortId(id: string): string {
+  return id.slice(0, 8);
+}

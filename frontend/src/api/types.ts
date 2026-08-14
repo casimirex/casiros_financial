@@ -170,3 +170,157 @@ export interface PostJournalEntryRequest {
 export interface JournalEntry extends PostJournalEntryRequest {
   id: string;
 }
+
+// ---------------------------------------------------------------------------
+// Accounts payable
+
+export interface PaymentTerms {
+  net_days: number;
+  discount_percent: DecimalString | null;
+  discount_days: number | null;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  payment_terms: PaymentTerms;
+  payable_account: number;
+}
+
+export type ApInvoiceStatus = "Open" | "PartiallyPaid" | "Paid";
+
+export interface ApInvoice {
+  id: string;
+  supplier: string;
+  invoice_number: string;
+  invoice_date: string;
+  amount: DecimalString;
+  terms: PaymentTerms;
+  amount_paid: DecimalString;
+  status: ApInvoiceStatus;
+}
+
+export interface AgingReport {
+  current: DecimalString;
+  days_1_to_30: DecimalString;
+  days_31_to_60: DecimalString;
+  days_61_to_90: DecimalString;
+  over_90: DecimalString;
+}
+
+export interface PaymentProposal {
+  supplier: string;
+  invoices: string[];
+  total_amount: DecimalString;
+}
+
+// ---------------------------------------------------------------------------
+// Accounts receivable
+
+export interface Customer {
+  id: string;
+  name: string;
+  credit_limit: DecimalString;
+  payment_terms: PaymentTerms;
+  receivable_account: number;
+}
+
+export type ArInvoiceStatus = "Open" | "PartiallyCollected" | "Collected";
+
+export type RecognitionMethod =
+  | { PointInTime: { recognition_date: string } }
+  | { RatablyOverTime: { start: string; end: string } };
+
+export interface ArInvoice {
+  id: string;
+  customer: string;
+  invoice_number: string;
+  invoice_date: string;
+  amount: DecimalString;
+  terms: PaymentTerms;
+  recognition_method: RecognitionMethod;
+  amount_received: DecimalString;
+  status: ArInvoiceStatus;
+}
+
+export interface ReceiptAllocation {
+  invoice: string;
+  amount_applied: DecimalString;
+}
+
+// ---------------------------------------------------------------------------
+// Treasury
+
+export type CashFlowCategory = "Operating" | "Investing" | "Financing";
+
+export interface CashFlowItem {
+  category: CashFlowCategory;
+  description: string;
+  amount: DecimalString;
+  date: string;
+}
+
+// Wire format is a raw [u8; 3] byte array (see crates/erp/src/treasury/fx.rs),
+// not a 3-letter string — see currencyCodeToBytes/bytesToCurrencyCode in
+// lib/format.ts for the conversion.
+export type CurrencyCode = [number, number, number];
+
+export interface ExchangeRate {
+  from: CurrencyCode;
+  to: CurrencyCode;
+  rate: DecimalString;
+  as_of: string;
+}
+
+export interface FxExposure {
+  currency: CurrencyCode;
+  amount: DecimalString;
+}
+
+// ---------------------------------------------------------------------------
+// Tax
+
+export interface TaxBracket {
+  upper_bound: DecimalString | null;
+  rate: DecimalString;
+}
+
+export interface TaxJurisdiction {
+  code: string;
+  name: string;
+  brackets: TaxBracket[];
+}
+
+export type DeferredTaxPosition = { Liability: DecimalString } | { Asset: DecimalString } | "None";
+
+export interface TemporaryDifference {
+  description: string;
+  book_basis: DecimalString;
+  tax_basis: DecimalString;
+  tax_rate: DecimalString;
+}
+
+// ---------------------------------------------------------------------------
+// Budget
+
+export interface DriverBasedLineItem {
+  account: number;
+  description: string;
+  driver_names: string[];
+}
+
+export interface VarianceEntry {
+  account: number;
+  account_type: AccountType;
+  budget: DecimalString;
+  actual: DecimalString;
+}
+
+export interface VarianceResult {
+  account: number;
+  budget: DecimalString;
+  actual: DecimalString;
+  variance: DecimalString;
+  variance_percent: DecimalString | null;
+  favorable: boolean;
+}

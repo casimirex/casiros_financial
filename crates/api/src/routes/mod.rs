@@ -2,12 +2,14 @@
 
 pub mod ap;
 pub mod ar;
+pub mod budget;
 pub mod calculate;
 pub mod health;
 pub mod journal;
 pub mod ledger;
 pub mod narrative;
 pub mod simulate;
+pub mod tax;
 pub mod treasury;
 
 use actix_web::web;
@@ -47,6 +49,15 @@ use utoipa_swagger_ui::SwaggerUi;
         treasury::shortfall,
         treasury::convert,
         treasury::hedge_effectiveness_handler,
+        tax::calculate,
+        tax::multi_jurisdiction,
+        tax::deferred_position,
+        budget::set_driver,
+        budget::get_driver,
+        budget::add_line_item,
+        budget::list_line_items,
+        budget::total,
+        budget::variance,
     ),
     tags(
         (name = "narrative", description = "CFO-style narrative memo generation"),
@@ -55,6 +66,8 @@ use utoipa_swagger_ui::SwaggerUi;
         (name = "ap", description = "Accounts payable: suppliers, invoices, aging, payment proposals"),
         (name = "ar", description = "Accounts receivable: customers, invoices, receipt allocation"),
         (name = "treasury", description = "Cash forecasting, FX conversion, hedge effectiveness"),
+        (name = "tax", description = "Progressive tax calculation, multi-jurisdiction aggregation, deferred tax"),
+        (name = "budget", description = "Driver-based budget planning and variance analysis"),
     )
 )]
 pub struct ApiDoc;
@@ -121,6 +134,30 @@ fn configure_treasury(cfg: &mut web::ServiceConfig) {
     );
 }
 
+fn configure_tax(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/tax")
+            .route("/calculate", web::post().to(tax::calculate))
+            .route(
+                "/multi-jurisdiction",
+                web::post().to(tax::multi_jurisdiction),
+            )
+            .route("/deferred-position", web::post().to(tax::deferred_position)),
+    );
+}
+
+fn configure_budget(cfg: &mut web::ServiceConfig) {
+    cfg.service(
+        web::scope("/budget")
+            .route("/drivers", web::post().to(budget::set_driver))
+            .route("/drivers/{name}", web::get().to(budget::get_driver))
+            .route("/line-items", web::post().to(budget::add_line_item))
+            .route("/line-items", web::get().to(budget::list_line_items))
+            .route("/total", web::get().to(budget::total))
+            .route("/variance", web::post().to(budget::variance)),
+    );
+}
+
 /// Registers every implemented route (including Swagger UI and the raw
 /// `OpenAPI` document) onto `cfg`.
 ///
@@ -144,7 +181,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .configure(configure_journal)
             .configure(configure_ap)
             .configure(configure_ar)
-            .configure(configure_treasury),
+            .configure(configure_treasury)
+            .configure(configure_tax)
+            .configure(configure_budget),
     );
     cfg.route("/ws/simulate", web::get().to(simulate::ws_simulate));
     cfg.service(
