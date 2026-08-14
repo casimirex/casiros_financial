@@ -9,5 +9,6 @@
 //! here, via manual `From`/`TryFrom` glue or inline mapping, not a derive on
 //! the domain type.
 
+pub mod ap;
 pub mod db;
 pub mod ledger;

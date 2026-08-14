@@ -1,7 +1,8 @@
 //! `/api/v1/ap/*` — suppliers, AP invoices, aging, and payment proposals.
 
 use crate::error::AppError;
-use crate::state::{AppState, lock};
+use crate::persistence::ap;
+use crate::state::AppState;
 use actix_web::{HttpResponse, web};
 use casiros_core::types::Dollar;
 use casiros_erp::ap::invoice::{AgingReport, ApInvoice, aging_report};
@@ -28,7 +29,7 @@ pub struct CreateSupplierRequest {
 ///
 /// # Errors
 ///
-/// This handler is infallible; it always returns `Ok`.
+/// Returns [`AppError::Database`] if the query fails.
 #[utoipa::path(
     post,
     path = "/api/v1/ap/suppliers",
@@ -48,7 +49,7 @@ pub async fn create_supplier(
         payment_terms: request.payment_terms,
         payable_account: request.payable_account,
     };
-    lock(&state.suppliers).insert(supplier.id, supplier.clone());
+    ap::register_supplier(&state.pool, &supplier).await?;
     info!(supplier_id = ?supplier.id, "supplier registered");
     Ok(HttpResponse::Created().json(supplier))
 }
@@ -57,7 +58,7 @@ pub async fn create_supplier(
 ///
 /// # Errors
 ///
-/// This handler is infallible; it always returns `Ok`.
+/// Returns [`AppError::Database`] if the query fails.
 #[utoipa::path(
     get,
     path = "/api/v1/ap/suppliers",
@@ -66,7 +67,7 @@ pub async fn create_supplier(
 )]
 #[instrument(name = "GET /ap/suppliers", skip(state))]
 pub async fn list_suppliers(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let suppliers: Vec<Supplier> = lock(&state.suppliers).values().cloned().collect();
+    let suppliers = ap::list_suppliers(&state.pool).await?;
     info!(count = suppliers.len(), "listed suppliers");
     Ok(HttpResponse::Ok().json(suppliers))
 }
@@ -115,7 +116,7 @@ pub async fn create_invoice(
         request.amount,
         request.terms,
     )?;
-    lock(&state.ap_invoices).insert(invoice.id, invoice.clone());
+    ap::create_invoice(&state.pool, &invoice).await?;
     info!(invoice_id = ?invoice.id, "AP invoice recorded");
     Ok(HttpResponse::Created().json(invoice))
 }
@@ -133,7 +134,7 @@ pub async fn create_invoice(
 )]
 #[instrument(name = "GET /ap/invoices", skip(state))]
 pub async fn list_invoices(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
-    let invoices: Vec<ApInvoice> = lock(&state.ap_invoices).values().cloned().collect();
+    let invoices = ap::list_invoices(&state.pool).await?;
     info!(count = invoices.len(), "listed AP invoices");
     Ok(HttpResponse::Ok().json(invoices))
 }
@@ -162,7 +163,7 @@ pub async fn aging(
     state: web::Data<AppState>,
     query: web::Query<AsOfQuery>,
 ) -> Result<HttpResponse, AppError> {
-    let invoices: Vec<ApInvoice> = lock(&state.ap_invoices).values().cloned().collect();
+    let invoices = ap::list_invoices(&state.pool).await?;
     let report = aging_report(&invoices, query.as_of)?;
     Ok(HttpResponse::Ok().json(report))
 }
@@ -199,7 +200,7 @@ pub async fn propose(
     request: web::Json<ProposePaymentsRequest>,
 ) -> Result<HttpResponse, AppError> {
     let request = request.into_inner();
-    let invoices: Vec<ApInvoice> = lock(&state.ap_invoices).values().cloned().collect();
+    let invoices = ap::list_invoices(&state.pool).await?;
     let proposals = propose_payments(
         &invoices,
         request.as_of,
