@@ -1,6 +1,7 @@
 //! `POST /api/v1/simulate` (synchronous) and `GET /ws/simulate` (streaming).
 
 use crate::error::AppError;
+use crate::simulate_cache::SimulateCache;
 use actix_web::{HttpRequest, HttpResponse, web};
 use actix_ws::{Message, Session};
 use casiros_simulator::aggregation::{SimulationResults, aggregate};
@@ -13,8 +14,12 @@ use std::collections::HashMap;
 use tracing::{error, info, instrument};
 use utoipa::ToSchema;
 
-/// The request body for both the synchronous and streaming simulate endpoints.
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+/// The request body for both the synchronous and streaming simulate
+/// endpoints. Also serialized (via `Serialize`) to build a cache key in
+/// `simulate_cache` — Monte Carlo results are deterministic for identical
+/// inputs (`MonteCarloConfig::seed` pins the RNG), so an identical request
+/// is always safe to serve from cache.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SimulateRequest {
     /// The baseline scenario to perturb.
     pub baseline: Universe,
@@ -22,8 +27,9 @@ pub struct SimulateRequest {
     pub config: MonteCarloConfig,
 }
 
-/// The response body for `POST /api/v1/simulate`.
-#[derive(Debug, Serialize, ToSchema)]
+/// The response body for `POST /api/v1/simulate`. Also deserialized (via
+/// `Deserialize`) when read back from `simulate_cache`.
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SimulateResponse {
     /// How many scenarios were requested.
     pub scenarios_requested: u32,
@@ -123,7 +129,10 @@ fn run_simulation_and_aggregate(
     })
 }
 
-/// Runs a Monte Carlo simulation synchronously and returns the full aggregated result.
+/// Runs a Monte Carlo simulation synchronously and returns the full
+/// aggregated result. Checks `cache` first (see [`SimulateCache`]'s docs for
+/// why an identical request is always safe to serve from cache) and stores
+/// a freshly-computed result back into it before returning.
 ///
 /// # Errors
 ///
@@ -136,9 +145,18 @@ fn run_simulation_and_aggregate(
     responses((status = 200, description = "Aggregated statistics for every metric", body = SimulateResponse)),
     tag = "simulate"
 )]
-#[instrument(name = "POST /simulate", skip(req))]
-pub async fn handle_simulate(req: web::Json<SimulateRequest>) -> Result<HttpResponse, AppError> {
-    let SimulateRequest { baseline, config } = req.into_inner();
+#[instrument(name = "POST /simulate", skip(cache, req))]
+pub async fn handle_simulate(
+    cache: web::Data<SimulateCache>,
+    req: web::Json<SimulateRequest>,
+) -> Result<HttpResponse, AppError> {
+    let request = req.into_inner();
+    if let Some(cached) = cache.get(&request).await {
+        info!("simulation cache hit");
+        return Ok(HttpResponse::Ok().json(cached));
+    }
+
+    let SimulateRequest { baseline, config } = request.clone();
     let block_result = web::block(move || run_simulation_and_aggregate(&baseline, &config))
         .await
         .map_err(|err| {
@@ -154,6 +172,7 @@ pub async fn handle_simulate(req: web::Json<SimulateRequest>) -> Result<HttpResp
         scenarios_failed = response.scenarios_failed,
         "simulation succeeded"
     );
+    cache.set(&request, &response).await;
     Ok(HttpResponse::Ok().json(response))
 }
 

@@ -10,6 +10,7 @@ use casiros_api::middleware::redis_rate_limit::RedisRateLimiter;
 use casiros_api::middleware::tracing::{REQUEST_ID_HEADER, new_request_id};
 use casiros_api::persistence::db;
 use casiros_api::routes;
+use casiros_api::simulate_cache::SimulateCache;
 use casiros_api::state::AppState;
 use std::time::Duration;
 use tracing::Instrument;
@@ -19,6 +20,8 @@ use tracing_subscriber::EnvFilter;
 const RATE_LIMIT_MAX_REQUESTS: usize = 100;
 /// The rate-limiting sliding window.
 const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(60);
+/// How long a cached `/api/v1/simulate` response stays valid.
+const SIMULATE_CACHE_TTL: Duration = Duration::from_secs(3600);
 /// The default bind address, overridable via `CASIROS_SERVER__BIND_ADDR`
 /// (matching the `CASIROS_<SECTION>__<KEY>` env override convention from
 /// `CASIROS_BUILD_PROMPT.md` section 12).
@@ -58,6 +61,12 @@ async fn main() -> std::io::Result<()> {
         .await
         .unwrap_or_else(|err| panic!("failed to connect to redis: {err}"));
 
+    // ConnectionManager is a cheap, internally-multiplexed clone — one
+    // underlying connection serves both the rate limiter and the cache.
+    let simulate_cache = web::Data::new(SimulateCache::new(
+        redis_connection.clone(),
+        SIMULATE_CACHE_TTL,
+    ));
     let rate_limiter = web::Data::new(RedisRateLimiter::new(
         redis_connection,
         RATE_LIMIT_MAX_REQUESTS,
@@ -71,6 +80,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(rate_limiter.clone())
+            .app_data(simulate_cache.clone())
             .app_data(app_state.clone())
             .wrap(Cors::permissive())
             .wrap_fn(|req, srv| {

@@ -14,8 +14,10 @@
 
 #![allow(dead_code)] // not every test binary that includes this module uses every item
 
+use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use testcontainers_modules::postgres::Postgres;
+use testcontainers_modules::redis::Redis;
 use testcontainers_modules::testcontainers::ContainerAsync;
 use testcontainers_modules::testcontainers::ImageExt;
 use testcontainers_modules::testcontainers::runners::AsyncRunner;
@@ -48,6 +50,37 @@ pub(crate) async fn test_db() -> TestDb {
         .expect("connect and migrate");
     TestDb {
         pool,
+        _container: container,
+    }
+}
+
+/// A Redis `ConnectionManager`, plus the container it lives in — same
+/// per-test-container reasoning as [`TestDb`] (a `ConnectionManager` also
+/// spawns background tasks tied to the runtime that created it).
+pub(crate) struct TestRedis {
+    pub(crate) connection: ConnectionManager,
+    _container: ContainerAsync<Redis>,
+}
+
+/// Starts a fresh Redis container and returns a connected, multiplexed
+/// `ConnectionManager` — matches what `main.rs` builds in production.
+pub(crate) async fn test_redis() -> TestRedis {
+    let container = Redis::default()
+        .start()
+        .await
+        .expect("start redis container");
+    let port = container
+        .get_host_port_ipv4(6379)
+        .await
+        .expect("get mapped port");
+    let client =
+        redis::Client::open(format!("redis://127.0.0.1:{port}/")).expect("open redis client");
+    let connection = client
+        .get_connection_manager()
+        .await
+        .expect("connection manager");
+    TestRedis {
+        connection,
         _container: container,
     }
 }

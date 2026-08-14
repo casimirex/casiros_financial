@@ -1,9 +1,13 @@
 //! Integration tests exercising `casiros-api`'s HTTP routes end-to-end,
 //! against the real `casiros_api::routes::configure` app assembly.
 
-use actix_web::{App, test};
+mod support;
+
+use actix_web::{App, test, web};
 use casiros_api::routes;
+use casiros_api::simulate_cache::SimulateCache;
 use serde_json::{Value, json};
+use std::time::Duration;
 
 #[actix_web::test]
 async fn healthz_reports_ok() {
@@ -112,7 +116,12 @@ fn sample_universe() -> Value {
 
 #[actix_web::test]
 async fn simulate_runs_and_aggregates_every_metric() {
-    let app = test::init_service(App::new().configure(routes::configure)).await;
+    let redis = support::test_redis().await;
+    let cache = web::Data::new(SimulateCache::new(
+        redis.connection,
+        Duration::from_secs(60),
+    ));
+    let app = test::init_service(App::new().app_data(cache).configure(routes::configure)).await;
     let req = test::TestRequest::post()
         .uri("/api/v1/simulate")
         .set_json(json!({

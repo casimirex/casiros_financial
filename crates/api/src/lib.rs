@@ -20,4 +20,5 @@ pub mod error;
 pub mod middleware;
 pub mod persistence;
 pub mod routes;
+pub mod simulate_cache;
 pub mod state;
